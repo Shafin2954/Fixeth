@@ -1,11 +1,6 @@
 'use client'
 
-import { useTranslations } from 'next-intl'
-import Link from 'next/link'
-
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const t = useTranslations()
-
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
@@ -14,24 +9,24 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
           <h2 className="font-bold text-lg">Fixeth</h2>
         </div>
         <nav className="space-y-2 px-4">
-          <Link
+          <a
             href="/dashboard"
             className="block p-3 rounded hover:bg-gray-100 font-medium"
           >
-            {t('dashboard.overview')}
-          </Link>
-          <Link
+            Overview
+          </a>
+          <a
             href="/tracks"
             className="block p-3 rounded hover:bg-gray-100"
           >
-            {t('dashboard.tracks')}
-          </Link>
-          <Link
+            My Tracks
+          </a>
+          <a
             href="/profile"
             className="block p-3 rounded hover:bg-gray-100"
           >
-            {t('dashboard.profile')}
-          </Link>
+            Profile
+          </a>
         </nav>
       </aside>
 
