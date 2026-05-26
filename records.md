@@ -16,41 +16,43 @@
 **Completed:**
 - ✅ Supabase deployed (schema running with all tables + indexes)
 - ✅ Supabase clients (utils/supabase/server.ts, client.ts)
-- ✅ Middleware for session refresh (middleware.ts)
-- ✅ NextAuth v5 with SupabaseAdapter
-- ✅ OAuth providers (Google, GitHub) — ready for credentials
-- ✅ Auth API routes (app/api/auth/[...nextauth]/route.ts)
+- ✅ **Switched to Supabase Auth** (removed NextAuth, simpler approach)
+- ✅ OAuth ready for GitHub & Google
 
 ### Phase 3: UI Components ✅
 **Completed:**
 - ✅ Navbar, TrackCard, LessonList, DashboardStats, DashboardLayout
-- ✅ i18n files (en.json, bn.json) with Bengali translations
+- ✅ i18n files (en.json, bn.json)
 - ✅ i18n config (i18n.ts)
 
 ### Phase 4: Pages & Routes ✅
 **Completed:**
 - ✅ Root layout & home page
-- ✅ Login page (app/login/page.tsx) — Google + GitHub OAuth
-- ✅ Signup page (app/signup/page.tsx) — Google + GitHub OAuth
-- ✅ Dashboard page (app/dashboard/page.tsx) — Stats + Get Started
-- ✅ Tracks listing (app/tracks/page.tsx) — Server-side page, queries DB
-- ✅ Build succeeds with no errors (npm run build ✓)
+- ✅ Login page — `supabase.auth.signInWithOAuth('google' | 'github')`
+- ✅ Signup page — Same OAuth flow, redirects to /onboarding
+- ✅ Dashboard page (dynamic, on-demand)
+- ✅ Tracks listing (queries Supabase DB)
+- ✅ Build succeeds ✓
 
 **Tech Stack Verified:**
-- Next.js 16.2.6 (App Router)
-- TypeScript + Tailwind
-- Supabase (PostgreSQL + Auth + Storage)
-- NextAuth v5 + @auth/supabase-adapter
-- next-intl for i18n
+- Next.js 16.2.6
+- Supabase Auth (GitHub, Google, Email/Magic Link)
+- PostgreSQL + pgvector
+- Tailwind + shadcn/ui
 
-### Phase 5: Next Steps (Coming Soon)
-- [ ] Add OAuth credentials to .env.local (Google Client ID/Secret, GitHub Client ID/Secret)
-- [ ] Test login/signup flow
-- [ ] Build onboarding (diagnostic test, track selection)
+### Phase 5: Setup OAuth (IN PROGRESS)
+**Next Steps (See SUPABASE_AUTH_SETUP.md):**
+- [ ] Create GitHub OAuth App → Get credentials
+- [ ] Add GitHub to Supabase (Project Settings → Auth → Providers)
+- [ ] Create Google OAuth credentials → Get credentials
+- [ ] Add Google to Supabase (Project Settings → Auth → Providers)
+- [ ] Test login/signup locally
+
+### Phase 6: Core Features (Coming Next)
+- [ ] Onboarding flow (diagnostic test, track selection)
 - [ ] Lesson detail page with video player
-- [ ] Agent stubs (curriculum.ts, tutor.ts, assessment.ts) — MCP servers
-- [ ] RAG pipeline (Whisper → pgvector embeddings)
-- [ ] Concept graph traversal logic
-- [ ] Assessment system
+- [ ] Agent stubs (curriculum, tutor, assessment) — MCP servers
+- [ ] RAG pipeline (YouTube → Whisper → pgvector)
+- [ ] Concept graph traversal
 
 
