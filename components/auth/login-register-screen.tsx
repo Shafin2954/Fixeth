@@ -93,16 +93,10 @@ export function LoginRegisterScreen({
     "weak" | "fair" | "good" | "strong"
   >("weak");
 
-  useEffect(() => {
-    setMode(initialMode);
-  }, [initialMode]);
-
-  useEffect(() => {
-    const authError = searchParams.get("error");
-    if (authError) {
-      setError("Sign in failed. Please try again.");
-    }
-  }, [searchParams]);
+  const urlAuthError = searchParams.get("error");
+  const displayError = urlAuthError
+    ? "Sign in failed. Please try again."
+    : error;
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -550,7 +544,7 @@ export function LoginRegisterScreen({
               </div>
             )}
 
-            {error && (
+            {displayError && (
               <div
                 className="rounded-lg border px-4 py-3 text-sm"
                 style={{
@@ -559,7 +553,7 @@ export function LoginRegisterScreen({
                   color: T.danger
                 }}
               >
-                {error}
+                {displayError}
               </div>
             )}
 

@@ -133,10 +133,13 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       modules,
+      setModules,
       activeLessonId,
       setActiveLessonId,
       openMods,
+      setOpenMods,
       aiMsgs,
+      setAiMsgs,
       handlePreviousLesson,
       handleNextLesson,
       activeModule,

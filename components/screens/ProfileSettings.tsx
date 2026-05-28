@@ -83,6 +83,14 @@ export default function ProfileSettingsScreen({
   const [toast, setToast] = useState<string | null>(null);
   const [showApiKey, setShowApiKey] = useState(false);
 
+  const linkedInShareId = useMemo(() => {
+    let hash = 0;
+    for (let i = 0; i < user.name.length; i++) {
+      hash = (hash * 31 + user.name.charCodeAt(i)) | 0;
+    }
+    return `fixeth-cred-${user.name.toLowerCase()}-${1000 + (Math.abs(hash) % 9000)}`;
+  }, [user.name]);
+
   useEffect(() => {
     setActiveTab(getMappedTab(initialTab));
   }, [initialTab]);
@@ -758,7 +766,7 @@ export default function ProfileSettingsScreen({
                 <input 
                   type="text" 
                   readOnly
-                  value={`fixeth-cred-${user.name.toLowerCase()}-${1000 + Math.floor(Math.random() * 9000)}`}
+                  value={linkedInShareId}
                   style={{ background: T.bg3, border: `1px solid ${T.border}`, color: T.txt2, borderRadius: 10, padding: "10px 12px", fontSize: 11, fontFamily: "monospace" }} 
                 />
               </label>

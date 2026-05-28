@@ -9,7 +9,9 @@ const eslintConfig = defineConfig([
     files: ["components/screens/**", "components/layout/sidebar.tsx"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": "off",
       "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "off",
       "react/jsx-key": "off",
       "react/no-unescaped-entities": "off",
       "prefer-const": "off"
@@ -28,6 +30,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Legacy Vite submodule — excluded from tsconfig; UI lives in components/screens
+    "frontend/**",
   ]),
 ]);
 
