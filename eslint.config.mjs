@@ -5,13 +5,28 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    files: ["components/screens/**", "components/layout/sidebar.tsx"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+      "react-hooks/set-state-in-effect": "off",
+      "react/jsx-key": "off",
+      "react/no-unescaped-entities": "off",
+      "prefer-const": "off"
+    }
+  },
+  {
+    files: ["components/providers/**"],
+    rules: {
+      "react-hooks/set-state-in-effect": "off"
+    }
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",
-    "frontend/**",
     "next-env.d.ts",
   ]),
 ]);

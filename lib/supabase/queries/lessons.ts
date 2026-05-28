@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/server'
+import { createClient } from "@/lib/supabase/server";
 import { Lesson } from '@/types'
 
 export async function getLessonsByModule(moduleId: string): Promise<Lesson[]> {

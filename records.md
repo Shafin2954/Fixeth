@@ -8,13 +8,34 @@
 ## Execution
 
 ### Current Source of Truth
-- SQL tables, Supabase Auth, and finalized frontend shell integration are complete.
-- Earlier records marked UI components, pages, routes, and build as complete, but those are no longer treated as completed execution phases.
-- Auth uses Supabase Auth, not NextAuth, following current project direction.
-- The app now uses the finalized UI from `frontend/` instead of the older root `app/` and `components/` dashboard shell.
-- Supabase currently syncs auth user profile, onboarding completion, preferred language, and preferred theme.
-- Feature data wiring is still pending; many finalized UI panels still use local/static demo data.
+- SQL tables, Supabase Auth, and finalized UI merged into root Next.js App Router are complete.
+- **Auth is Supabase Auth only** (OAuth + session cookies via `@supabase/ssr`). There is no NextAuth in this project.
+- All app screens live under `components/screens/` with bookmarkable routes (`/dashboard`, `/learn/[lessonId]`, etc.).
+- **`frontend/` is a Git submodule** (reference UI). Root Next.js ports selected screens from it; submodule is not deployed separately.
+- **Production:** [https://fixeth.vercel.app](https://fixeth.vercel.app) (Vercel project `fixeth`, team `shafin2954s-projects`).
+- Supabase syncs auth user profile, onboarding completion, preferred language, theme, and local preference blobs (editor/AI prefs in `localStorage` + partial DB sync).
+- **Course content in the app UI** still uses static `CORE_MODULES` in `lib/course/constants.ts`. DB tables (`tracks`, `modules`, `lessons`) exist and `/tracks` reads published tracks via `getAllTracks()`, but dashboard/learn flows are not wired to Supabase curriculum yet.
 - BYOA and payment processing are excluded by `AGENTS.md`, even where older metaprompt sections mention them.
+
+### Frontend merge — done vs not done
+
+| Area | Status |
+|------|--------|
+| Copy screens, themes, i18n map, UI types into root | Done |
+| App Router URLs + `(app)` / `(onboarding)` route groups | Done |
+| `AppThemeProvider`, `CourseProvider`, `AppChrome`, `WorkspaceLayout` | Done |
+| `middleware.ts` + `/auth/callback` (Supabase OAuth) | Done (redirect loop fixed — see below) |
+| Remove `frontend/` submodule + `FinalizedFrontendShell` | Done (submodule kept as design reference) |
+| Port latest `frontend` UI deltas into `components/screens/*` | Done (2026-05-29, last 5 submodule commits) |
+| Login/signup UI matches `LoginRegister.tsx` + Google/GitHub OAuth | Done |
+| OAuth session persistence (`/auth/callback` cookie fix) | Done |
+| `next-intl` instead of `lib/i18n/messages.ts` | Not done |
+| Dashboard/lesson data from Supabase queries | Not done |
+| `Analytics.tsx` screen + `/analytics` route | Not done |
+| Public `/profile/[username]`, `/verify/[hash]` pages | Not done |
+| Curriculum Agent after onboarding | Not done |
+| BYOA badge/copy removal in UI | Not done |
+| Docs: `onboarding.md`, `copilot-instructions.md`, `metaprompt.md` structure | Not fully updated |
 
 ### Phase 1: SQL Foundation ✅
 **Completed:**
@@ -30,14 +51,15 @@
 ### Phase 2: Auth ✅
 **Completed:**
 - ✅ Supabase Auth selected as the auth system
-- ✅ GitHub OAuth configured
-- ✅ Google OAuth configured
-- ✅ Login/signup flow uses Supabase OAuth
+- ✅ GitHub OAuth configured (Google + GitHub on prod; redirect URLs in Supabase)
+- ✅ Login/signup flow uses Supabase OAuth + email/password form
+- ✅ `components/auth/login-register-screen.tsx` (ported from submodule `LoginRegister.tsx`)
+- ✅ Production OAuth callback sets session cookies on redirect response (`app/auth/callback/route.ts`)
 
 **Still verify:**
-- [ ] Auth callback redirects correctly after the clean DB reset
-- [ ] User profile row creation/sync works with the new `users` schema
-- [ ] `users` RLS/read-write policy is compatible with profile updates
+- [x] Auth callback → `/onboarding` or `/dashboard` based on `users.onboarding_complete`
+- [ ] User profile row creation/sync works reliably with the new `users` schema (test fresh OAuth user end-to-end)
+- [x] `users` RLS migration added (`20260528_users_rls.sql`) — must be applied in Supabase SQL Editor if not already
 
 ### Phase 3: i18n + Theme System (Partial)
 - [x] Finalized frontend local English/Bengali translation map
@@ -46,17 +68,16 @@
 - [x] Finalized frontend dark/light theme state
 - [x] Theme toggle persisted to `users.preferred_theme`
 
-### Phase 4: Finalized UI Shell ✅
+### Phase 4: App UI Shell ✅ (merged into root Next.js)
 **Completed:**
-- ✅ `/dashboard` renders the finalized `frontend/src/App.tsx` shell
-- ✅ `/onboarding` renders the same finalized shell for signup redirects
-- ✅ `/` redirects into `/dashboard`
-- ✅ Supabase session guard redirects signed-out users to `/login`
+- ✅ `/dashboard`, `/learn/[lessonId]`, `/notebook`, etc. render migrated `components/screens/*`
+- ✅ `/onboarding` is a dedicated route (`app/(onboarding)/onboarding`)
+- ✅ `/` redirects to `/dashboard`
+- ✅ `middleware.ts` protects app routes; Supabase session via `@supabase/ssr`
 - ✅ Sign out uses Supabase Auth and returns to `/login`
 
 **Still refine:**
 - [ ] Remove or replace BYOA visual references to match `AGENTS.md`
-- [ ] Decide whether old root dashboard/components should be deleted after the new shell is stable
 - [ ] Confirm mobile nav behavior from the finalized UI
 
 ### Phase 5: Onboarding (Partial)
@@ -67,11 +88,13 @@
 - [x] Onboarding completion persisted to Supabase `users.onboarding_complete`
 - [ ] Curriculum Agent integration after onboarding
 
-### Phase 6: Dashboard
-- [ ] Continue learning card
-- [ ] Stats grid
-- [ ] Track cards from Supabase data
-- [ ] Recommended next lesson
+### Phase 6: Dashboard (Partial)
+- [x] Submodule dashboard UI: progress from modules, assessment card, track rows, `ContentTemplates`
+- [x] Codespace editor prefs (theme, font, keymap) from profile settings
+- [x] Profile settings 5-tab layout (identity, codespace, mentor, credentials, system/data)
+- [ ] Wire dashboard modules/progress from Supabase `enrollments` + `progress` (still `CORE_MODULES` mock)
+- [ ] Continue learning card linked to `enrollments.current_lesson_id`
+- [ ] Track cards from live Supabase data on dashboard
 - [ ] Job market feed
 - [ ] Mentor prompt panel
 
@@ -168,10 +191,59 @@
 - [ ] Skill trend persistence
 - [ ] Admin review status flow
 
+## 2026-05-28 — redirect loop fix
+
+### Problem
+After OAuth login (including brand-new users), browser showed `ERR_TOO_MANY_REDIRECTS`.
+
+### Root cause
+`middleware.ts` treated `/onboarding` as a normal protected app route (`isProtectedApp`). For users with `onboarding_complete !== true`, the middleware redirected **every** protected route to `/onboarding` — including when the user was **already** on `/onboarding`. That produced an infinite redirect to the same URL.
+
+Secondary issue: `/login` and `/signup` client effects always sent existing sessions to `/dashboard`, causing an extra hop (`/dashboard` → `/onboarding`) before the loop above.
+
+### Fix
+- Exclude `/onboarding` from `isProtectedApp`; only redirect incomplete users from true app routes (dashboard, learn, etc.).
+- When a signed-in user hits `/login` or `/signup`, middleware sends them to `/onboarding` or `/dashboard` based on profile (not always `/dashboard`).
+- Align login/signup `useEffect` session checks with the same onboarding flag.
+
+### Stuck after onboarding (symptom)
+User finishes onboarding UI but never reaches `/dashboard` (stays on `/onboarding` or bounces back).
+
+### Root cause
+1. **`users` table had no RLS policies** in migrations. If RLS was enabled in the Supabase dashboard without policies, **SELECT/UPDATE fail silently** (0 rows).
+2. Postgres RLS: **UPDATE requires a SELECT policy** on the same row — without it, `onboarding_complete = true` never persists.
+3. `completeUserOnboarding` used `.update()` only and **did not check errors**, so the UI navigated to `/dashboard` even when the DB write failed; middleware then sent the user back to `/onboarding`.
+
+### Fix (code + migration)
+- Added [`supabase/migrations/20260528_users_rls.sql`](supabase/migrations/20260528_users_rls.sql): `SELECT` / `INSERT` / `UPDATE` policies for `auth.uid() = id` on `users`.
+- `completeUserOnboarding` now **upserts** the profile (with email), verifies `onboarding_complete`, and throws on failure.
+- Onboarding UI shows a red error banner if save fails.
+
+### What you must run in Supabase
+1. Open **Supabase Dashboard → SQL Editor**.
+2. Paste and run the contents of `supabase/migrations/20260528_users_rls.sql` (or run `npx supabase db push` if using local CLI linked to the project).
+3. In **Table Editor → users**, confirm your row exists with `id` = your Auth user UUID and `onboarding_complete` = `true` after finishing onboarding.
+4. If a test row is stuck at `false`, set `onboarding_complete` to `true` manually once, or delete the row and sign in again.
+
+### Open questions / risks
+- Home `/` still redirects to `/dashboard`; middleware then sends incomplete users to `/onboarding` (two hops, acceptable).
+
+## 2026-05-28 (continued)
+
+### Done
+- Merged Vite `frontend/` submodule into root Next.js: `components/screens/`, `lib/ui/themes.ts`, `lib/i18n/messages.ts`, `types/ui.ts`.
+- Added App Router route groups `(app)` and `(onboarding)` with real URLs and `middleware.ts` auth/onboarding guards.
+- Replaced `FinalizedFrontendShell` with `AppAuthShell`, `AppThemeProvider`, `CourseProvider`, `AppChrome`, `WorkspaceLayout`.
+- Added `/auth/callback` OAuth handler; consolidated Supabase client on `@/lib/supabase/client`.
+- Removed `frontend/` submodule, old dashboard shell components, and `utils/supabase/`.
+
+### Verified
+- `npm run build`
+
 ## 2026-05-28
 
 ### Done
-- Mounted finalized `frontend/` UI inside the Next.js app through `components/finalized-frontend-shell.tsx`.
+- Mounted finalized `frontend/` UI inside the Next.js app through `components/finalized-frontend-shell.tsx` (superseded by merge above).
 - Replaced the old `/dashboard` page with the finalized frontend shell.
 - Added `/onboarding` route so Supabase signup redirects land on the finalized onboarding flow.
 - Redirected `/` to `/dashboard`.
@@ -194,5 +266,32 @@
 - Confirmed `/login` and `/signup` are active routes used by the Supabase auth flow.
 - Confirmed `components/lesson/lesson-list.tsx` is not currently mounted by the finalized frontend shell, but it is still part of the root codebase and lint scope.
 - Kept the auth route lint fixes, old component lint fix, `i18n.ts` typing fix, and plan document cleanup as necessary project hygiene.
+
+## 2026-05-29 — Vercel deploy, auth UI, frontend submodule sync
+
+### Done
+- **Vercel:** Deployed root Next.js to production ([fixeth.vercel.app](https://fixeth.vercel.app)). Env vars on Vercel: `NEXT_PUBLIC_SUPABASE_*`, `NEXT_PUBLIC_APP_URL`, optional AI keys.
+- **Auth fix:** OAuth callback attaches Supabase session cookies to the redirect response (fixes “returns to login after Google/GitHub”).
+- **Auth UI:** `LoginRegister`-style screen at `/login` and `/signup` with Sign In / Sign Up tabs, email form, Google + GitHub buttons (`components/auth/login-register-screen.tsx`).
+- **Frontend submodule sync** (commits `3ab2811..ce6249c`, 5 commits): ported into root without editing `frontend/`:
+  - `Dashboard.tsx`, `ContentTemplates.tsx` (new), `Codespace.tsx`, `ProfileSettings.tsx`
+  - `types/ui.ts` extended (`UserEvaluation`, `UserProfile`, `UserPreferences` with `editor` + `ai`)
+  - `app-theme-provider.tsx` defaults + `normalizePreferences` for new prefs
+  - Dashboard/codespace/profile pages wired to new props
+- **Build:** `tsconfig.json` excludes `frontend/` from Next.js typecheck; `npm run build` passes.
+
+### Left to do (near term)
+- [ ] Pin git submodule `frontend` to `ce6249c` in root repo (`git add frontend`) when ready to commit
+- [ ] Wire `CourseProvider` / dashboard / learn from `lib/supabase/queries/tracks.ts` + `lessons.ts` instead of `CORE_MODULES`
+- [ ] Onboarding: create `enrollments` row when user picks a track; set `current_lesson_id`
+- [ ] Persist assessment `evaluation` to DB or `localStorage` consistently after onboarding
+- [ ] Port `Analytics.tsx` + add `/analytics` route (updated in submodule, not in root yet)
+- [ ] Align `types/index.ts` `Track` fields with DB (`title_en` vs `title`) for `/tracks` page
+- [ ] Apply / verify all Supabase migrations (`20260527_init_schema.sql`, `20260528_users_rls.sql`)
+- [ ] Remove BYOA UI copy per `AGENTS.md`
+- [ ] `next-intl` migration from `lib/i18n/messages.ts`
+
+### How to register courses / tracks (see also user question below)
+Curriculum lives in Supabase tables `tracks` → `modules` → `lessons`. There is **no admin UI yet**; register content via SQL (or future seed script). Published tracks appear on `/tracks` via `getAllTracks()`. Learner enrollment is table `enrollments` (not wired from onboarding yet).
 
 

@@ -30,9 +30,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": [
-    "node_modules",
-    "frontend/src/main.tsx",
-    "frontend/vite.config.ts"
-  ]
+  "exclude": ["node_modules", "frontend"]
 }
