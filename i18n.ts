@@ -6,7 +6,7 @@ const locales = ['en', 'bn'] as const
 export default getRequestConfig(async () => {
   const locale = 'en' // default
   
-  if (!locales.includes(locale as any)) notFound()
+  if (!locales.includes(locale as typeof locales[number])) notFound()
 
   return {
     locale,

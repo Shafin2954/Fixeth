@@ -17,7 +17,7 @@ export default function SignupPage() {
         router.push('/dashboard')
       }
     })
-  }, [])
+  }, [router, supabase.auth])
 
   const handleOAuthSignUp = (provider: 'github' | 'google') => async () => {
     setIsLoading(true)

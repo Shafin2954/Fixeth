@@ -8,7 +8,7 @@ interface LessonListProps {
   moduleId: string
 }
 
-export function LessonList({ lessons, moduleId }: LessonListProps) {
+export function LessonList({ lessons }: LessonListProps) {
   return (
     <div className="space-y-2">
       {lessons.map((lesson) => (

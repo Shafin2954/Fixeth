@@ -190,4 +190,9 @@
 - Remove BYOA UI references or convert them to the approved platform-AI flow.
 - Start wiring onboarding output to Curriculum Agent path generation.
 
+### Follow-up Cleanup
+- Confirmed `/login` and `/signup` are active routes used by the Supabase auth flow.
+- Confirmed `components/lesson/lesson-list.tsx` is not currently mounted by the finalized frontend shell, but it is still part of the root codebase and lint scope.
+- Kept the auth route lint fixes, old component lint fix, `i18n.ts` typing fix, and plan document cleanup as necessary project hygiene.
+
 
