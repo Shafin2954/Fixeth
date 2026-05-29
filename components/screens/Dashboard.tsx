@@ -85,7 +85,10 @@ export default function DashboardScreen({
   const trackRows = [
     {
       name: lang === "bn" ? "ডেটা সায়েন্স ট্র্যাক" : "Data Science & AI",
-      pct: currentModule?.id === 1 ? currentModulePct : Math.min(100, Math.max(0, Math.round((completedLessons / Math.max(totalLessons || 1, 1)) * 100))),
+      pct:
+        currentModule?.id === modules[0]?.id
+          ? currentModulePct
+          : Math.min(100, Math.max(0, Math.round((completedLessons / Math.max(totalLessons || 1, 1)) * 100))),
       label: currentModule?.title ?? (lang === "bn" ? "সক্রিয় মডিউল" : "Active module")
     },
     {

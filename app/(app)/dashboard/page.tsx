@@ -52,8 +52,8 @@ export default function DashboardPage() {
       loading={loading}
       onContinue={() => router.push(continueHref)}
       onStartAssessment={() => router.push("/onboarding")}
-      onMyTracks
-      onTrackLibrary
+      onMyTracks={() => router.push("/my-tracks")}
+      onTrackLibrary={() => router.push("/tracks")}
     />
   );
 }

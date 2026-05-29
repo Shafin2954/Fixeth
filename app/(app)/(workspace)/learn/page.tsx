@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveEnrollment } from "@/lib/supabase/queries/enrollments";
+import { getActiveEnrollment } from "@/lib/supabase/queries/enrollments-server";
 import { getFirstLessonIdForTrack } from "@/lib/supabase/queries/modules";
 
 export default async function LearnIndexPage() {
