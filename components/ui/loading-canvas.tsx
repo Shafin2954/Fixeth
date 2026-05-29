@@ -69,7 +69,7 @@ export default function LoadingCanvas({
 
       <div
         style={{
-          maxWidth: variant === "auth" ? 480 : 1080,
+          maxWidth: variant === "auth" ? 480 : variant === "dashboard" ? 1040 : 1080,
           margin: "0 auto",
           padding:
             variant === "auth"
@@ -270,7 +270,70 @@ function renderWorkspaceLike(T: LoadingCanvasTheme, shimmer: string) {
 }
 
 function renderLearn(T: LoadingCanvasTheme, shimmer: string) {
-  return renderWorkspaceLike(T, shimmer);
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "220px minmax(0, 1fr) 320px", gap: 0, minHeight: "calc(100vh - 80px)" }}>
+      <div style={{ background: "#080a11", borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", minHeight: 0 }}>
+        <div style={{ padding: "18px 16px 10px" }}>{bar("42%", 10)}</div>
+        <div style={{ flex: 1, padding: "0 10px 14px", display: "grid", gap: 8 }}>
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} style={{ height: 46, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.04}s` }} />
+          ))}
+        </div>
+        <div style={{ padding: 14, borderTop: `1px solid ${T.border}` }}>
+          <div style={{ height: 42, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite" }} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", background: T.bg0, borderRight: `1px solid ${T.border}`, minHeight: 0 }}>
+        <div style={{ padding: "14px 24px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 38, height: 38, borderRadius: "50%", background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite" }} />
+            <div style={{ display: "grid", gap: 6 }}>
+              {bar("120px", 14)}
+              {bar("210px", 10)}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} style={{ width: 62, height: 28, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.05}s` }} />
+            ))}
+          </div>
+        </div>
+
+        <div style={{ padding: "12px 24px 6px", display: "flex", gap: 10, flexWrap: "wrap", flexShrink: 0 }}>
+          <div style={{ width: 110, height: 28, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite" }} />
+          <div style={{ width: 110, height: 28, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.08s" }} />
+          <div style={{ width: 110, height: 28, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.16s" }} />
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
+          <div style={{ display: "grid", gap: 14 }}>
+            {bar("52%", 18)}
+            <div style={{ aspectRatio: "16 / 9", borderRadius: 16, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.08s" }} />
+            <div style={{ display: "grid", gap: 8 }}>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div key={index} style={{ height: 24, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.05}s` }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: "#0c0e17", display: "flex", flexDirection: "column", minHeight: 0, borderLeft: `1px solid ${T.border}` }}>
+        <div style={{ padding: "14px 24px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "grid", gap: 6, width: "100%" }}>
+            {bar("42%", 12)}
+            {bar("68%", 10)}
+          </div>
+        </div>
+        <div style={{ flex: 1, padding: 14, display: "grid", gap: 10, overflowY: "auto" }}>
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} style={{ height: index === 0 ? 120 : 96, borderRadius: 12, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.05}s` }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function renderNotebook(T: LoadingCanvasTheme, shimmer: string) {
@@ -456,19 +519,44 @@ function renderCertificates(T: LoadingCanvasTheme, shimmer: string) {
 
 function renderMentor(T: LoadingCanvasTheme, shimmer: string) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.3fr) 320px", gap: 16, minHeight: "calc(100vh - 80px)" }}>
-      <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 16, padding: 16, boxShadow: T.shadow, display: "grid", gap: 12 }}>
-        {bar("36%", 18)}
-        <div style={{ height: 280, borderRadius: 16, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.08s" }} />
-        <div style={{ height: 52, borderRadius: 12, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.16s" }} />
+    <div style={{ display: "grid", gridTemplateColumns: "220px minmax(0, 1fr) 320px", gap: 0, minHeight: "calc(100vh - 80px)" }}>
+      <div style={{ background: "#080a11", borderRight: `1px solid ${T.border}`, padding: 16, display: "grid", gap: 10 }}>
+        {bar("58%", 14)}
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} style={{ height: 44, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.04}s` }} />
+        ))}
       </div>
-      <div style={{ display: "grid", gap: 12 }}>
-        <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 16, padding: 16, boxShadow: T.shadow, display: "grid", gap: 10 }}>
-          {bar("54%", 16)}
+
+      <div style={{ background: "#0c0e17", padding: 14, display: "grid", gap: 12, borderRight: `1px solid ${T.border}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "grid", gap: 6, width: "46%" }}>
+            {bar("42%", 16)}
+            {bar("74%", 10)}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} style={{ width: 64, height: 24, borderRadius: 6, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.05}s` }} />
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "grid", gap: 12, overflowY: "auto" }}>
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} style={{ height: 34, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.05}s` }} />
+            <div key={index} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <div style={{ width: 30, height: 30, borderRadius: "50%", background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.04}s` }} />
+              <div style={{ flex: 1, display: "grid", gap: 8 }}>
+                {bar(index % 2 === 0 ? "70%" : "62%", 12)}
+                {bar(index % 2 === 0 ? "88%" : "78%", 28)}
+              </div>
+            </div>
           ))}
         </div>
+      </div>
+
+      <div style={{ background: "#0c0e17", padding: 14, display: "grid", gap: 10 }}>
+        {bar("54%", 16)}
+        {Array.from({ length: 5 }).map((_, index) => (
+          <div key={index} style={{ height: 52, borderRadius: 12, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.05}s` }} />
+        ))}
       </div>
     </div>
   );
