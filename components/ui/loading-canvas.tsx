@@ -208,7 +208,62 @@ function renderDashboard(T: LoadingCanvasTheme, shimmer: string) {
 }
 
 function renderWorkspace(T: LoadingCanvasTheme, shimmer: string) {
-  return renderWorkspaceLike(T, shimmer);
+  return renderGuidedVideo(T, shimmer);
+}
+
+function renderGuidedVideo(T: LoadingCanvasTheme, shimmer: string) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, minHeight: "calc(100vh - 80px)", padding: "16px" }}>
+      {/* Header with title + dock toggle */}
+      <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 10, padding: "10px 16px", boxShadow: T.shadow, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "grid", gap: 6 }}>
+          {bar("32%", 11)}
+          {bar("180px", 14)}
+        </div>
+        <div style={{ width: 140, height: 34, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite" }} />
+      </div>
+
+      {/* Main layout: video (left, larger) + tabs panel (right) */}
+      <div style={{ flex: 1, display: "flex", gap: 14, minHeight: 0 }}>
+        {/* Left: Video Player */}
+        <div style={{ flex: 1.3, display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Video player with 16:9 ratio */}
+          <div style={{ background: "#000", borderRadius: 12, overflow: "hidden", border: `1px solid ${T.border}`, boxShadow: T.shadow, aspectRatio: "16/9" }}>
+            <div style={{ width: "100%", height: "100%", background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite" }} />
+          </div>
+
+          {/* Video controls strip */}
+          <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 10, padding: "8px 12px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ width: 24, height: 24, borderRadius: 6, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite" }} />
+            <div style={{ flex: 1, minWidth: 100, height: 3, borderRadius: 2, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.04s" }} />
+            <div style={{ width: 60, height: 16, borderRadius: 4, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.08s" }} />
+            <div style={{ display: "flex", gap: 6 }}>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} style={{ width: 20, height: 20, borderRadius: 4, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${i * 0.05}s` }} />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Tabs Panel */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 280, background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", boxShadow: T.shadow }}>
+          {/* Tabs selector */}
+          <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, background: T.bg2 }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ flex: 1, height: 40, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${i * 0.05}s` }} />
+            ))}
+          </div>
+
+          {/* Tab content area */}
+          <div style={{ flex: 1, padding: 14, display: "grid", gap: 10, overflowY: "auto" }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} style={{ height: i === 0 ? 100 : 46, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${i * 0.05}s` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function renderWorkspaceLike(T: LoadingCanvasTheme, shimmer: string) {
@@ -443,21 +498,44 @@ function renderCodeSpace(T: LoadingCanvasTheme, shimmer: string) {
 
 function renderTools(T: LoadingCanvasTheme, shimmer: string) {
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      {bar("32%", 20)}
-      <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 16, padding: 18, boxShadow: T.shadow, display: "grid", gap: 12 }}>
-        {bar("42%", 16)}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
-          {Array.from({ length: 5 }).map((_, index) => (
-            <div key={index} style={{ height: 74, borderRadius: 14, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.05}s` }} />
-          ))}
+    <div style={{ flex: 1, overflowY: "auto", background: T.bg0 }}>
+      <div style={{ maxWidth: 840, margin: "0 auto", padding: "20px 16px 40px", display: "grid", gap: 20 }}>
+        {/* Header */}
+        <div style={{ display: "grid", gap: 8 }}>
+          {bar("48%", 18)}
+          {bar("100%", 11.5)}
         </div>
-        <div style={{ height: 46, borderRadius: 12, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.08s" }} />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div key={index} style={{ height: 56, borderRadius: 12, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.05}s` }} />
-        ))}
+
+        {/* BYOA Section */}
+        <div style={{ background: T.bg1, border: `1px solid ${T.accent}50`, borderRadius: 12, padding: 20, boxShadow: T.shadow, display: "grid", gap: 16 }}>
+          <div style={{ display: "grid", gap: 6 }}>
+            {bar("42%", 13.5)}
+            {bar("100%", 11)}
+          </div>
+
+          {/* Provider buttons grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} style={{ height: 74, borderRadius: 14, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${i * 0.05}s` }} />
+            ))}
+          </div>
+
+          {/* Input + button area */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1, height: 40, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.08s" }} />
+            <div style={{ width: 160, height: 40, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.12s" }} />
+          </div>
+        </div>
+
+        {/* Resource Library Section */}
+        <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 14, padding: 22, boxShadow: T.shadow, display: "grid", gap: 14 }}>
+          {bar("28%", 14)}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} style={{ height: 56, borderRadius: 12, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${i * 0.05}s` }} />
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -520,43 +598,71 @@ function renderCertificates(T: LoadingCanvasTheme, shimmer: string) {
 function renderMentor(T: LoadingCanvasTheme, shimmer: string) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "220px minmax(0, 1fr) 320px", gap: 0, minHeight: "calc(100vh - 80px)" }}>
-      <div style={{ background: "#080a11", borderRight: `1px solid ${T.border}`, padding: 16, display: "grid", gap: 10 }}>
-        {bar("58%", 14)}
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div key={index} style={{ height: 44, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.04}s` }} />
-        ))}
+      {/* LEFT: Sessions Sidebar */}
+      <div style={{ background: "#080a11", borderRight: `1px solid ${T.border}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
+        <div style={{ padding: "18px 16px 10px 16px", fontSize: 10, color: "#6b7280", fontWeight: 800, letterSpacing: "1.5px" }}>
+          {bar("42%", 10)}
+        </div>
+        <div style={{ flex: 1, padding: "0 10px 14px", display: "grid", gap: 8 }}>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} style={{ height: 48, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${i * 0.04}s` }} />
+          ))}
+        </div>
+        <div style={{ padding: 14, borderTop: `1px solid ${T.border}` }}>
+          <div style={{ height: 42, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite" }} />
+        </div>
       </div>
 
-      <div style={{ background: "#0c0e17", padding: 14, display: "grid", gap: 12, borderRight: `1px solid ${T.border}` }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "grid", gap: 6, width: "46%" }}>
-            {bar("42%", 16)}
-            {bar("74%", 10)}
+      {/* CENTER: Chat Workspace */}
+      <div style={{ background: "#0c0e17", display: "flex", flexDirection: "column", minHeight: 0, borderRight: `1px solid ${T.border}` }}>
+        {/* Header: Title + Cognitive level buttons */}
+        <div style={{ padding: "14px 24px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexShrink: 0 }}>
+          <div style={{ display: "grid", gap: 6 }}>
+            {bar("120px", 14)}
+            {bar("80px", 10)}
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} style={{ width: 64, height: 24, borderRadius: 6, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.05}s` }} />
+          <div style={{ display: "flex", gap: 8 }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} style={{ width: 72, height: 26, borderRadius: 6, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${i * 0.05}s` }} />
             ))}
           </div>
         </div>
-        <div style={{ display: "grid", gap: 12, overflowY: "auto" }}>
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-              <div style={{ width: 30, height: 30, borderRadius: "50%", background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.04}s` }} />
-              <div style={{ flex: 1, display: "grid", gap: 8 }}>
-                {bar(index % 2 === 0 ? "70%" : "62%", 12)}
-                {bar(index % 2 === 0 ? "88%" : "78%", 28)}
+
+        {/* Chat Messages Area */}
+        <div style={{ flex: 1, padding: "16px 24px", display: "grid", gap: 16, overflowY: "auto" }}>
+          {Array.from({ length: 5 }).map((_, i) => {
+            const isAI = i % 2 === 0;
+            return (
+              <div key={i} style={{ display: "flex", gap: 12, alignItems: isAI ? "flex-start" : "flex-end", justifyContent: isAI ? "flex-start" : "flex-end" }}>
+                {isAI && <div style={{ width: 32, height: 32, borderRadius: "50%", background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${i * 0.04}s` }} />}
+                <div style={{ display: "grid", gap: 8, maxWidth: "65%" }}>
+                  {Array.from({ length: isAI ? 3 : 2 }).map((_, j) => (
+                    <div key={j} style={{ height: 18, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${i * 0.04 + j * 0.05}s` }} />
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+        </div>
+
+        {/* Input area */}
+        <div style={{ padding: "14px 24px", borderTop: `1px solid ${T.border}`, flexShrink: 0, display: "flex", gap: 8 }}>
+          <div style={{ flex: 1, height: 38, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite" }} />
+          <div style={{ width: 38, height: 38, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.3s ease-in-out infinite 0.08s" }} />
         </div>
       </div>
 
-      <div style={{ background: "#0c0e17", padding: 14, display: "grid", gap: 10 }}>
-        {bar("54%", 16)}
-        {Array.from({ length: 5 }).map((_, index) => (
-          <div key={index} style={{ height: 52, borderRadius: 12, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${index * 0.05}s` }} />
-        ))}
+      {/* RIGHT: Context/Memory Panel */}
+      <div style={{ background: "#0c0e17", display: "flex", flexDirection: "column", minHeight: 0, borderLeft: `1px solid ${T.border}` }}>
+        <div style={{ padding: "14px 24px", borderBottom: `1px solid ${T.border}`, display: "grid", gap: 6, flexShrink: 0 }}>
+          {bar("42%", 12)}
+          {bar("68%", 10)}
+        </div>
+        <div style={{ flex: 1, padding: 14, display: "grid", gap: 12, overflowY: "auto" }}>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} style={{ height: 64, borderRadius: 12, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.3s ease-in-out infinite ${i * 0.05}s` }} />
+          ))}
+        </div>
       </div>
     </div>
   );
