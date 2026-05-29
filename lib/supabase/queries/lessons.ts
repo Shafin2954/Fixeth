@@ -50,6 +50,7 @@ export async function getLessonWithTrack(
   const trackId = Array.isArray(mod) ? mod[0]?.track_id : mod?.track_id;
   if (!trackId) return null;
 
-  const { module: _m, ...lessonRow } = lesson;
+  const { module, ...lessonRow } = lesson;
+  void module;
   return { lesson: lessonRow as Lesson, trackId };
 }

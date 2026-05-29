@@ -14,6 +14,22 @@ export default function TrackLibraryPage() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      fetchAllTracksClient(),
+      fetchUserEnrollmentsClient(authUser.id)
+    ]).then(([allTracks, enrollments]) => {
+      if (!cancelled) {
+        setTracks(allTracks);
+        setEnrolledIds(new Set(enrollments.map((e) => e.track_id)));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser.id]);
+
   const load = useCallback(async () => {
     const [allTracks, enrollments] = await Promise.all([
       fetchAllTracksClient(),
@@ -22,10 +38,6 @@ export default function TrackLibraryPage() {
     setTracks(allTracks);
     setEnrolledIds(new Set(enrollments.map((e) => e.track_id)));
   }, [authUser.id]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   const enrolledTrackIds = useMemo(() => enrolledIds, [enrolledIds]);
 

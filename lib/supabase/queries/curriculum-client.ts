@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
-import type { Module, Lesson } from "@/types/ui";
+import type { Module } from "@/types/ui";
 import type { Enrollment, Track } from "@/types";
 
 export type ClientEnrollment = Enrollment & { track: Track | null };

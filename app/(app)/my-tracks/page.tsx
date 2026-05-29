@@ -13,16 +13,25 @@ export default function MyTracksPage() {
   const [enrollments, setEnrollments] = useState<EnrollmentWithTrack[]>([]);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchUserEnrollmentsClient(authUser.id).then((rows) => {
+      if (!cancelled) {
+        setEnrollments(rows);
+        setLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authUser.id]);
+
   const load = useCallback(async () => {
     setLoading(true);
     const rows = await fetchUserEnrollmentsClient(authUser.id);
     setEnrollments(rows);
     setLoading(false);
   }, [authUser.id]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   return (
     <MyTracksScreen

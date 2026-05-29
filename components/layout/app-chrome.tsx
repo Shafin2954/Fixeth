@@ -14,9 +14,7 @@ import {
   ClipboardList,
   Upload,
   UsersRound,
-  Wrench,
-  Menu,
-  X
+  Wrench
 } from "lucide-react";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
 import { useCourse } from "@/components/providers/course-provider";
@@ -33,7 +31,6 @@ type NavItem = {
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);

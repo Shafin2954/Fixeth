@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import type { Track } from "@/types";
 import { enrollInTrackClient } from "@/lib/supabase/queries/enroll-client";
@@ -41,6 +42,7 @@ export default function TrackLibraryScreen({
   userId: string;
   onEnrolled: () => void;
 }) {
+  const router = useRouter();
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -71,9 +73,9 @@ export default function TrackLibraryScreen({
     onEnrolled();
 
     if (result.firstLessonId) {
-      window.location.href = `/learn/${result.firstLessonId}`;
+      router.push(`/learn/${result.firstLessonId}`);
     } else {
-      window.location.href = "/my-tracks";
+      router.push("/my-tracks");
     }
   };
 
