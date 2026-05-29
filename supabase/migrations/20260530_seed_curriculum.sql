@@ -66,3 +66,5 @@ BEGIN
     (NULL, 'Matplotlib is used for:', 'ম্যাটপ্লটলিব ব্যবহার হয়:', '{"options":["Plotting charts","Compiling C","DNS lookup","Git merges"],"correct":0}'::jsonb, 2);
 
 END $$;
+
+-

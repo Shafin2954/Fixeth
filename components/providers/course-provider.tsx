@@ -16,6 +16,10 @@ import {
   fetchCompletedLessonIdsClient,
   fetchCurriculumForTrack
 } from "@/lib/supabase/queries/curriculum-client";
+import {
+  fetchEnrollmentForTrackClient,
+  fetchTrackIdForLessonClient
+} from "@/lib/supabase/queries/enroll-client";
 
 type CourseContextValue = {
   modules: Module[];
@@ -71,7 +75,16 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
 
   const refreshCurriculum = useCallback(async () => {
     setLoading(true);
-    const enrollment = await fetchActiveEnrollmentClient(authUser.id);
+
+    let enrollment = await fetchActiveEnrollmentClient(authUser.id);
+    if (routeLessonId) {
+      const trackId = await fetchTrackIdForLessonClient(routeLessonId);
+      if (trackId) {
+        const byLesson = await fetchEnrollmentForTrackClient(authUser.id, trackId);
+        if (byLesson) enrollment = byLesson;
+      }
+    }
+
     const completed = await fetchCompletedLessonIdsClient(authUser.id);
     setCompletedIds(completed);
 

@@ -10,7 +10,7 @@ export function TrackCard({ track }: { track: Track }) {
 
   return (
     <Link
-      href="/onboarding"
+      href="/tracks"
       className="block rounded-lg border bg-white p-6 shadow-sm transition hover:shadow-md"
     >
       <h2 className="text-xl font-semibold">{title}</h2>

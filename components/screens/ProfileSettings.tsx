@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ArrowLeft,
   BadgeCheck,
@@ -309,6 +310,59 @@ export default function ProfileSettingsScreen({
                 {lang === "bn" ? "ছোট বায়ো" : "Short Bio"}
                 <textarea value={profileDraft.bio || ""} onChange={(e) => setProfileDraft((p) => ({ ...p, bio: e.target.value }))} rows={3} style={{ background: T.bg2, border: `1px solid ${T.border}`, color: T.txt0, borderRadius: 10, padding: "10px 12px", fontSize: 12, resize: "vertical" }} />
               </label>
+
+              <div
+                style={{
+                  background: T.bg2,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 10,
+                  padding: 14,
+                  display: "grid",
+                  gap: 10
+                }}
+              >
+                <div style={{ fontSize: 12, fontWeight: 800, color: T.txt0 }}>
+                  {lang === "bn" ? "আমার শেখা" : "My learning"}
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <Link
+                    href="/my-tracks"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      background: T.accentDim,
+                      border: `1px solid ${T.accent}44`,
+                      color: T.accent,
+                      fontWeight: 700,
+                      fontSize: 11,
+                      textDecoration: "none"
+                    }}
+                  >
+                    {lang === "bn" ? "সক্রিয় ট্র্যাক" : "Active tracks"}
+                  </Link>
+                  <Link
+                    href="/tracks"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      background: T.bg3,
+                      border: `1px solid ${T.border}`,
+                      color: T.txt0,
+                      fontWeight: 700,
+                      fontSize: 11,
+                      textDecoration: "none"
+                    }}
+                  >
+                    {lang === "bn" ? "ট্র্যাক লাইব্রেরি" : "Track library"}
+                  </Link>
+                </div>
+              </div>
 
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
                 <button onClick={saveIdentity} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: T.accent, color: "#000", border: "none", borderRadius: 10, padding: "10px 16px", fontWeight: 900, cursor: "pointer", fontSize: 12 }}>

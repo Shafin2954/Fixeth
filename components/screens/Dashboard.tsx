@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { AlertCircle, CheckCircle2, ArrowRight, BookOpen, Star, Bot, Award, Trophy, Flame } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, CheckCircle2, ArrowRight, BookOpen, Star, Bot, Award, Trophy, Flame, Library, List } from "lucide-react";
 import ContentTemplates from "@/components/screens/ContentTemplates";
 import type { DashboardStats, Module, UserEvaluation } from "@/types/ui";
 
@@ -18,7 +19,9 @@ export default function DashboardScreen({
   dashboardStats = null,
   streak = 0,
   loading = false,
-  onStartAssessment
+  onStartAssessment,
+  onMyTracks,
+  onTrackLibrary
 }: {
   T: any;
   t: any;
@@ -33,6 +36,8 @@ export default function DashboardScreen({
   streak?: number;
   loading?: boolean;
   onStartAssessment?: () => void;
+  onMyTracks?: () => void;
+  onTrackLibrary?: () => void;
 }) {
   const [isMobile, setIsMobile] = useState(false);
 
@@ -158,22 +163,66 @@ export default function DashboardScreen({
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-            <button
-              onClick={onContinue}
-              style={{
-                background: T.accent,
-                border: "none",
-                borderRadius: 8,
-                padding: isMobile ? "12px 20px" : "10px 18px",
-                fontWeight: 800,
-                fontSize: isMobile ? 14 : 12.5,
-                color: "#000",
-                cursor: "pointer",
-                boxShadow: `0 4px 14px ${T.accent}2d`
-              }}
-            >
-              {t.continueBtn}
-            </button>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                onClick={onContinue}
+                style={{
+                  background: T.accent,
+                  border: "none",
+                  borderRadius: 8,
+                  padding: isMobile ? "12px 20px" : "10px 18px",
+                  fontWeight: 800,
+                  fontSize: isMobile ? 14 : 12.5,
+                  color: "#000",
+                  cursor: "pointer",
+                  boxShadow: `0 4px 14px ${T.accent}2d`
+                }}
+              >
+                {t.continueBtn}
+              </button>
+              {onMyTracks && (
+                <Link
+                  href="/my-tracks"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: isMobile ? "12px 14px" : "10px 14px",
+                    borderRadius: 8,
+                    background: T.bg3,
+                    border: `1px solid ${T.border}`,
+                    color: T.txt0,
+                    fontWeight: 700,
+                    fontSize: isMobile ? 13 : 11.5,
+                    textDecoration: "none"
+                  }}
+                >
+                  <List size={16} />
+                  {lang === "bn" ? "আমার ট্র্যাক" : "My tracks"}
+                </Link>
+              )}
+              {onTrackLibrary && (
+                <Link
+                  href="/tracks"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: isMobile ? "12px 14px" : "10px 14px",
+                    borderRadius: 8,
+                    background: T.bg3,
+                    border: `1px solid ${T.border}`,
+                    color: T.txt0,
+                    fontWeight: 700,
+                    fontSize: isMobile ? 13 : 11.5,
+                    textDecoration: "none"
+                  }}
+                >
+                  <Library size={16} />
+                  {lang === "bn" ? "লাইব্রেরি" : "Library"}
+                </Link>
+              )}
+            </div>
             <span style={{ fontSize: isMobile ? 12 : 10, color: T.txt1 }}>
               Syllabus Progress · <strong style={{ color: T.accent }}>{enrollmentProgress}%</strong>
             </span>
