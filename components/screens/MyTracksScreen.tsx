@@ -31,6 +31,29 @@ export default function MyTracksScreen({
   return (
     <div style={{ flex: 1, overflowY: "auto", background: T.bg0 }}>
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "24px 16px 48px" }}>
+        {/* Back button */}
+        <Link
+          href="/dashboard"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "8px 12px",
+            borderRadius: 8,
+            background: "transparent",
+            border: `1px solid ${T.border}`,
+            color: T.txt1,
+            fontWeight: 700,
+            fontSize: 12,
+            textDecoration: "none",
+            marginBottom: 16,
+            cursor: "pointer",
+            transition: "all 0.2s ease"
+          }}
+        >
+          ← {lang === "bn" ? "ড্যাশবোর্ড" : "Dashboard"}
+        </Link>
+
         <div
           style={{
             display: "flex",
