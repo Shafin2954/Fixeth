@@ -158,22 +158,16 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div
+            <img
+              src="/logo.svg"
+              alt="Fixeth Logo"
               style={{
-                width: 26,
-                height: 26,
+                width: 32,
+                height: 32,
                 borderRadius: 6,
-                background: T.accent,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: 14,
-                fontWeight: 950,
-                color: "#000"
+                objectFit: "contain"
               }}
-            >
-              F
-            </div>
+            />
             <span style={{ fontSize: 15, fontWeight: 950, color: T.txt0, letterSpacing: -0.5 }}>
               {t.brand}
             </span>
