@@ -19,11 +19,5 @@
     "YOUTUBE_DATA_API_KEY",
     "PLATFORM_GEMINI_KEY"
   ],
-  "buildOutputDirectory": ".next",
-  "crons": [
-    {
-      "path": "/api/cron/job-market-scraper",
-      "schedule": "0 9 * * 1"
-    }
-  ]
+  "buildOutputDirectory": ".next"
 }
