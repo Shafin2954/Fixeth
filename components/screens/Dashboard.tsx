@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { AlertCircle, CheckCircle2, ArrowRight, BookOpen, Star, Bot, Award, Trophy, Flame } from "lucide-react";
 import ContentTemplates from "@/components/screens/ContentTemplates";
 import { Module, UserEvaluation } from "@/types/ui";
@@ -28,6 +28,14 @@ export default function DashboardScreen({
   weeklyGoal?: number;
   onStartAssessment?: () => void;
 }) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
   const totalLessons = modules.reduce((count, module) => count + module.lessons.length, 0);
   const completedLessons = modules.reduce((count, module) => count + module.lessons.filter((lesson) => lesson.done).length, 0);
   const currentModule = modules.find((module) => module.lessons.some((lesson) => lesson.id === activeLessonId)) ?? modules[0];
@@ -98,10 +106,10 @@ export default function DashboardScreen({
           }}
         >
           <div>
-            <h2 style={{ fontSize: 21, fontWeight: 900, color: T.txt0, margin: "0 0 6px" }}>
+            <h2 style={{ fontSize: isMobile ? 24 : 21, fontWeight: 900, color: T.txt0, margin: "0 0 6px" }}>
               {t.greeting}, {user?.name ?? (lang === "bn" ? "বন্ধু" : "Learner")} 👋
             </h2>
-            <p style={{ color: T.txt1, fontSize: 13, margin: "0 0 14px", lineHeight: 1.4 }}>
+            <p style={{ color: T.txt1, fontSize: isMobile ? 15 : 13, margin: "0 0 14px", lineHeight: 1.4 }}>
               {lang === "bn"
                 ? "আপনি টানা ১২ দিন ধরে পড়াশোনা সচল রেখেছেন! মডিউল ১ সম্পন্ন করতে আর ৩টি লেকচার বাকি।"
                 : "Continuous activity maintained for 12 days! Complete 3 classes to lock-in Module 1 certification."}
@@ -112,14 +120,14 @@ export default function DashboardScreen({
                 <div
                   key={idx}
                   style={{
-                    width: 30,
-                    height: 30,
+                    width: isMobile ? 36 : 30,
+                    height: isMobile ? 36 : 30,
                     borderRadius: 8,
                     background: weekActivity[idx] ? T.accent : T.bg4,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 9.5,
+                    fontSize: isMobile ? 11 : 9.5,
                     fontWeight: 800,
                     color: weekActivity[idx] ? "#000" : T.txt2
                   }}
@@ -137,9 +145,9 @@ export default function DashboardScreen({
                 background: T.accent,
                 border: "none",
                 borderRadius: 8,
-                padding: "10px 18px",
+                padding: isMobile ? "12px 20px" : "10px 18px",
                 fontWeight: 800,
-                fontSize: 12.5,
+                fontSize: isMobile ? 14 : 12.5,
                 color: "#000",
                 cursor: "pointer",
                 boxShadow: `0 4px 14px ${T.accent}2d`
@@ -147,7 +155,7 @@ export default function DashboardScreen({
             >
               {t.continueBtn}
             </button>
-            <span style={{ fontSize: 10, color: T.txt1 }}>
+            <span style={{ fontSize: isMobile ? 12 : 10, color: T.txt1 }}>
               Syllabus Progress · <strong style={{ color: T.accent }}>{totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0}%</strong>
             </span>
           </div>
@@ -187,10 +195,10 @@ export default function DashboardScreen({
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <AlertCircle size={24} color="#FF8A3D" />
               <div>
-                <h3 style={{ fontSize: 15, fontWeight: 900, color: T.txt0, margin: "0 0 4px" }}>
+                <h3 style={{ fontSize: isMobile ? 17 : 15, fontWeight: 900, color: T.txt0, margin: "0 0 4px" }}>
                   {lang === "bn" ? "আপনার মূল্যায়ন এখনো বাকি" : "Assessment Pending"}
                 </h3>
-                <p style={{ color: T.txt1, fontSize: 13, margin: 0, lineHeight: 1.3 }}>
+                <p style={{ color: T.txt1, fontSize: isMobile ? 14 : 13, margin: 0, lineHeight: 1.3 }}>
                   {lang === "bn"
                     ? "আপনার দক্ষতা পরিমাপ করুন এবং ব্যক্তিগতকৃত শিক্ষা পথ পান।"
                     : "Complete your assessment to unlock personalized learning recommendations."}
