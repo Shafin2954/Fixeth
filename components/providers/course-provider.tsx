@@ -4,20 +4,27 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState
 } from "react";
 import { useParams, useRouter } from "next/navigation";
-import type { ChatMessage, Module } from "@/types/ui";
-import { CORE_MODULES, DEFAULT_LESSON_ID } from "@/lib/course/constants";
+import type { ChatMessage, DashboardStats, Module } from "@/types/ui";
+import { useAppTheme } from "@/components/providers/app-theme-provider";
+import {
+  fetchActiveEnrollmentClient,
+  fetchCompletedLessonIdsClient,
+  fetchCurriculumForTrack
+} from "@/lib/supabase/queries/curriculum-client";
 
 type CourseContextValue = {
   modules: Module[];
-  setModules: React.Dispatch<React.SetStateAction<Module[]>>;
-  activeLessonId: number;
-  setActiveLessonId: (id: number) => void;
-  openMods: Record<number, boolean>;
-  setOpenMods: React.Dispatch<React.SetStateAction<Record<number, boolean>>>;
+  loading: boolean;
+  enrollmentTrackId: string | null;
+  activeLessonId: string;
+  setActiveLessonId: (id: string) => void;
+  openMods: Record<string, boolean>;
+  setOpenMods: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   aiMsgs: ChatMessage[];
   setAiMsgs: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   handlePreviousLesson: () => void;
@@ -25,6 +32,8 @@ type CourseContextValue = {
   activeModule: Module | undefined;
   activeLesson: Module["lessons"][number] | undefined;
   learnHref: string;
+  dashboardStats: DashboardStats | null;
+  refreshCurriculum: () => Promise<void>;
 };
 
 const CourseContext = createContext<CourseContextValue | null>(null);
@@ -35,42 +44,107 @@ export function useCourse() {
   return ctx;
 }
 
-function parseLessonId(lessonParam: string | string[] | undefined): number {
+function parseLessonId(lessonParam: string | string[] | undefined): string | null {
   const raw = Array.isArray(lessonParam) ? lessonParam[0] : lessonParam;
-  const parsed = raw ? Number(raw) : DEFAULT_LESSON_ID;
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_LESSON_ID;
+  return raw && raw.length > 0 ? raw : null;
 }
 
 export function CourseProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const params = useParams();
-  const activeLessonId = parseLessonId(params?.lessonId);
+  const { authUser, profileRow, lang } = useAppTheme();
 
-  const [baseModules, setBaseModules] = useState<Module[]>(CORE_MODULES);
-  const [openMods, setOpenMods] = useState<Record<number, boolean>>({ 1: true, 2: false });
+  const routeLessonId = parseLessonId(params?.lessonId);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [enrollmentTrackId, setEnrollmentTrackId] = useState<string | null>(null);
+  const [activeLessonId, setActiveLessonIdState] = useState<string>("");
+  const [openMods, setOpenMods] = useState<Record<string, boolean>>({});
+  const [completedIds, setCompletedIds] = useState<string[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [aiMsgs, setAiMsgs] = useState<ChatMessage[]>([
     {
       role: "ai",
-      text: "I am your Fixeth companion tutor. Let us review the Python Scope blocks!"
+      text: "I am your Fixeth companion tutor. Ask me about this lesson!"
     }
   ]);
 
-  const modules = useMemo(
+  const refreshCurriculum = useCallback(async () => {
+    setLoading(true);
+    const enrollment = await fetchActiveEnrollmentClient(authUser.id);
+    const completed = await fetchCompletedLessonIdsClient(authUser.id);
+    setCompletedIds(completed);
+
+    if (!enrollment?.track_id) {
+      setModules([]);
+      setEnrollmentTrackId(null);
+      setDashboardStats(null);
+      setLoading(false);
+      return;
+    }
+
+    setEnrollmentTrackId(enrollment.track_id);
+    const curriculum = await fetchCurriculumForTrack(
+      enrollment.track_id,
+      completed,
+      lang
+    );
+    setModules(curriculum);
+
+    const firstOpen: Record<string, boolean> = {};
+    if (curriculum[0]) firstOpen[curriculum[0].id] = true;
+    setOpenMods((prev) => ({ ...firstOpen, ...prev }));
+
+    const totalLessons = curriculum.reduce((n, m) => n + m.lessons.length, 0);
+    const trackTitle =
+      lang === "bn" && enrollment.track?.title_bn
+        ? enrollment.track.title_bn
+        : enrollment.track?.title_en || "Your track";
+
+    setDashboardStats({
+      progressPercent: Number(enrollment.progress_percent) || 0,
+      lessonsCompleted: completed.length,
+      totalLessons,
+      streak: profileRow?.streak ?? 0,
+      trackTitle,
+      currentLessonId: enrollment.current_lesson_id ?? null
+    });
+
+    const defaultLesson =
+      routeLessonId ||
+      enrollment.current_lesson_id ||
+      curriculum[0]?.lessons[0]?.id ||
+      "";
+    setActiveLessonIdState(defaultLesson);
+    setLoading(false);
+  }, [authUser.id, lang, profileRow?.streak, routeLessonId]);
+
+  useEffect(() => {
+    void refreshCurriculum();
+  }, [refreshCurriculum]);
+
+  useEffect(() => {
+    if (routeLessonId && routeLessonId !== activeLessonId) {
+      setActiveLessonIdState(routeLessonId);
+    }
+  }, [routeLessonId, activeLessonId]);
+
+  const modulesWithActive = useMemo(
     () =>
-      baseModules.map((mod) => ({
+      modules.map((mod) => ({
         ...mod,
         lessons: mod.lessons.map((les) => ({
           ...les,
-          active: les.id === activeLessonId
+          active: les.id === activeLessonId,
+          done: completedIds.includes(les.id)
         }))
       })),
-    [activeLessonId, baseModules]
+    [modules, activeLessonId, completedIds]
   );
 
-  const setModules: React.Dispatch<React.SetStateAction<Module[]>> = setBaseModules;
-
   const setActiveLessonId = useCallback(
-    (id: number) => {
+    (id: string) => {
+      setActiveLessonIdState(id);
       if (typeof window !== "undefined" && window.location.pathname.startsWith("/learn")) {
         router.replace(`/learn/${id}`);
       } else {
@@ -81,8 +155,8 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
   );
 
   const handlePreviousLesson = useCallback(() => {
-    const allLessons: { id: number; modId: number }[] = [];
-    modules.forEach((m) => {
+    const allLessons: { id: string; modId: string }[] = [];
+    modulesWithActive.forEach((m) => {
       m.lessons.forEach((l) => {
         allLessons.push({ id: l.id, modId: m.id });
       });
@@ -93,11 +167,11 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
       setActiveLessonId(prevItem.id);
       setOpenMods((prev) => ({ ...prev, [prevItem.modId]: true }));
     }
-  }, [activeLessonId, modules, setActiveLessonId]);
+  }, [activeLessonId, modulesWithActive, setActiveLessonId]);
 
   const handleNextLesson = useCallback(() => {
-    const allLessons: { id: number; modId: number }[] = [];
-    modules.forEach((m) => {
+    const allLessons: { id: string; modId: string }[] = [];
+    modulesWithActive.forEach((m) => {
       m.lessons.forEach((l) => {
         allLessons.push({ id: l.id, modId: m.id });
       });
@@ -108,17 +182,23 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
       setActiveLessonId(nextItem.id);
       setOpenMods((prev) => ({ ...prev, [nextItem.modId]: true }));
     }
-  }, [activeLessonId, modules, setActiveLessonId]);
+  }, [activeLessonId, modulesWithActive, setActiveLessonId]);
 
   const activeModule =
-    modules.find((mod) => mod.lessons.some((lesson) => lesson.id === activeLessonId)) ?? modules[0];
+    modulesWithActive.find((mod) =>
+      mod.lessons.some((lesson) => lesson.id === activeLessonId)
+    ) ?? modulesWithActive[0];
   const activeLesson =
-    activeModule?.lessons.find((lesson) => lesson.id === activeLessonId) ?? activeModule?.lessons[0];
+    activeModule?.lessons.find((lesson) => lesson.id === activeLessonId) ??
+    activeModule?.lessons[0];
+
+  const learnHref = activeLessonId ? `/learn/${activeLessonId}` : "/learn";
 
   const value = useMemo(
     () => ({
-      modules,
-      setModules,
+      modules: modulesWithActive,
+      loading,
+      enrollmentTrackId,
       activeLessonId,
       setActiveLessonId,
       openMods,
@@ -129,21 +209,25 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
       handleNextLesson,
       activeModule,
       activeLesson,
-      learnHref: `/learn/${activeLessonId}`
+      learnHref,
+      dashboardStats,
+      refreshCurriculum
     }),
     [
-      modules,
-      setModules,
+      modulesWithActive,
+      loading,
+      enrollmentTrackId,
       activeLessonId,
       setActiveLessonId,
       openMods,
-      setOpenMods,
       aiMsgs,
-      setAiMsgs,
       handlePreviousLesson,
       handleNextLesson,
       activeModule,
-      activeLesson
+      activeLesson,
+      learnHref,
+      dashboardStats,
+      refreshCurriculum
     ]
   );
 

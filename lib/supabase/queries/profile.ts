@@ -1,5 +1,7 @@
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
+import { normalizeUiTier, type UiTier } from "@/lib/tier/config";
+import { createEnrollment } from "@/lib/supabase/queries/enrollments";
 
 export type UserProfileRow = {
   id: string;
@@ -11,6 +13,8 @@ export type UserProfileRow = {
   goal: string | null;
   experience_level: string | null;
   onboarding_complete: boolean | null;
+  ui_tier: number | null;
+  streak: number | null;
 };
 
 export type AppUserProfile = {
@@ -23,11 +27,14 @@ export type AppUserProfile = {
 
 export type OnboardingPayload = {
   lang: string;
-  track: string;
+  /** Track UUID from Supabase */
+  trackId: string;
+  trackTier?: UiTier;
   goal: string;
   level: string;
   assessmentScore?: number;
   skippedAssessment?: boolean;
+  firstLessonId?: string | null;
 };
 
 export class ProfileQueryError extends Error {
@@ -41,7 +48,7 @@ export class ProfileQueryError extends Error {
 }
 
 const PROFILE_SELECT =
-  "id,email,name,avatar_url,preferred_language,preferred_theme,goal,experience_level,onboarding_complete";
+  "id,email,name,avatar_url,preferred_language,preferred_theme,goal,experience_level,onboarding_complete,ui_tier,streak";
 
 export function getDisplayName(authUser: SupabaseUser, row?: UserProfileRow | null) {
   return (
@@ -132,6 +139,12 @@ export async function completeUserOnboarding(
     throw new ProfileQueryError("Signed-in user has no email on the auth account.");
   }
 
+  if (!data.trackId) {
+    throw new ProfileQueryError("Please select a learning track before continuing.");
+  }
+
+  const uiTier = normalizeUiTier(data.trackTier ?? 1);
+
   const { data: row, error } = await supabase
     .from("users")
     .upsert(
@@ -142,6 +155,7 @@ export async function completeUserOnboarding(
         preferred_language: data.lang,
         goal: data.goal,
         experience_level: data.level,
+        ui_tier: uiTier,
         onboarding_complete: true,
         last_active: new Date().toISOString()
       },
@@ -161,6 +175,18 @@ export async function completeUserOnboarding(
   if (!row?.onboarding_complete) {
     throw new ProfileQueryError(
       "Onboarding was saved but onboarding_complete is still false. Check database defaults and RLS."
+    );
+  }
+
+  const enrollment = await createEnrollment(
+    authUser.id,
+    data.trackId,
+    data.firstLessonId ?? null
+  );
+
+  if (!enrollment) {
+    throw new ProfileQueryError(
+      "Profile saved but enrollment could not be created. Check RLS on enrollments."
     );
   }
 

@@ -3,18 +3,23 @@ export type UserRole = 'learner' | 'institutional_admin' | 'platform_admin'
 export type UserPlan = 'free' | 'pro'
 export type AuthProvider = 'google' | 'github' | 'email'
 export type Language = 'en' | 'bn'
+export type UiTier = 1 | 2 | 3
 
 // User
 export interface User {
   id: string
   name: string
   email: string
-  auth_provider: AuthProvider
+  auth_provider?: AuthProvider
   role: UserRole
   plan: UserPlan
   institution_id?: string
   onboarding_complete: boolean
   preferred_language: Language
+  preferred_theme?: string
+  goal?: string
+  experience_level?: string
+  ui_tier?: UiTier
   streak: number
   created_at: string
   last_active: string
@@ -23,14 +28,19 @@ export interface User {
 // Tracks & Concepts
 export interface Track {
   id: string
-  title: string
   slug: string
-  description: string
-  price: number // in BDT paisa
-  difficulty: string
-  estimated_hours: number
-  skills: string[]
+  title_en: string
+  title_bn?: string
+  description_en?: string
+  description_bn?: string
+  price_bdt: number
+  is_free: boolean
+  difficulty?: string
+  estimated_hours?: number
+  tier: UiTier
   published: boolean
+  skills?: string[]
+  tools?: string[]
 }
 
 export interface Concept {
@@ -58,18 +68,22 @@ export interface LearnerMastery {
 export interface Module {
   id: string
   track_id: string
-  title: string
+  title_en: string
+  title_bn?: string
   order_index: number
 }
 
 export interface Lesson {
   id: string
   module_id: string
-  title: string
-  youtube_video_id: string
-  notes?: string
+  title_en: string
+  title_bn?: string
+  youtube_video_id: string | null
+  notes_md?: string | null
+  notes_bn_md?: string | null
   order_index: number
-  concept_ids: string[]
+  estimated_mins?: number | null
+  concept_ids?: string[]
 }
 
 export interface LessonResource {
@@ -105,11 +119,20 @@ export interface Enrollment {
   track_id: string
   enrolled_at: string
   completed_at?: string
-  current_lesson_id?: string
+  current_lesson_id?: string | null
   progress_percent: number
   final_score?: number
   certificate_id?: string
   financial_aid: boolean
+  track?: Track
+}
+
+export interface Progress {
+  user_id: string
+  lesson_id: string
+  completed: boolean
+  completed_at?: string | null
+  watch_pct: number
 }
 
 // API Response

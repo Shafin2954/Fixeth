@@ -10,10 +10,12 @@ import {
   ProfileQueryError,
   type OnboardingPayload
 } from "@/lib/supabase/queries/profile";
+import { fetchFirstLessonIdClient } from "@/lib/supabase/queries/curriculum-client";
 import { themes } from "@/lib/ui/themes";
 import { i18n } from "@/lib/i18n/messages";
 import Onboarding from "@/components/screens/Onboarding";
-import { DEFAULT_LESSON_ID } from "@/lib/course/constants";
+import type { Track } from "@/types";
+import type { UiTier } from "@/lib/tier/config";
 
 const toRgba = (hex: string, alpha: number) => {
   const normalized = hex.replace("#", "");
@@ -24,11 +26,22 @@ const toRgba = (hex: string, alpha: number) => {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
+const TRACK_ICONS: Record<string, string> = {
+  "digital-literacy": "💻",
+  "data-science": "📊",
+  "python-foundations": "🐍",
+  "git-version-control": "🔀",
+  "backend-development": "⚙️",
+  "devops-cloud": "☁️",
+  "fullstack-mern": "🚀"
+};
+
 export function OnboardingShell() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [isLoading, setIsLoading] = useState(true);
   const [authUser, setAuthUser] = useState<SupabaseUser | null>(null);
+  const [publishedTracks, setPublishedTracks] = useState<Track[]>([]);
   const [isDark, setIsDark] = useState(true);
   const [lang, setLang] = useState("en");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -52,6 +65,17 @@ export function OnboardingShell() {
       }
       if (row?.preferred_language) setLang(row.preferred_language);
       if (row?.preferred_theme) setIsDark(row.preferred_theme === "dark");
+
+      const { data: tracks, error } = await supabase
+        .from("tracks")
+        .select("*")
+        .eq("published", true)
+        .order("tier")
+        .order("title_en");
+
+      if (!error && tracks?.length) {
+        setPublishedTracks(tracks as Track[]);
+      }
       setIsLoading(false);
     });
 
@@ -61,23 +85,40 @@ export function OnboardingShell() {
   }, [router, supabase]);
 
   const handleComplete = useCallback(
-    async (data: OnboardingPayload) => {
+    async (data: {
+      lang: string;
+      trackId: string;
+      trackTier: UiTier;
+      goal: string;
+      level: string;
+      assessmentScore?: number;
+      skippedAssessment?: boolean;
+    }) => {
       if (!authUser || isSaving) return;
       setSaveError(null);
       setIsSaving(true);
       if (data.lang) setLang(data.lang);
 
       try {
-        await completeUserOnboarding(authUser, data);
+        const firstLessonId = await fetchFirstLessonIdClient(data.trackId);
+        const payload: OnboardingPayload = {
+          lang: data.lang,
+          trackId: data.trackId,
+          trackTier: data.trackTier,
+          goal: data.goal,
+          level: data.level,
+          assessmentScore: data.assessmentScore,
+          skippedAssessment: data.skippedAssessment,
+          firstLessonId
+        };
 
-        let lessonId = DEFAULT_LESSON_ID;
-        if (typeof data.assessmentScore === "number") {
-          lessonId = data.assessmentScore >= 2 ? 5 : data.assessmentScore === 1 ? 3 : 1;
-        }
+        await completeUserOnboarding(authUser, payload);
 
         router.replace("/dashboard");
         router.refresh();
-        router.prefetch(`/learn/${lessonId}`);
+        if (firstLessonId) {
+          router.prefetch(`/learn/${firstLessonId}`);
+        }
       } catch (err) {
         const message =
           err instanceof ProfileQueryError
@@ -108,6 +149,18 @@ export function OnboardingShell() {
   };
   const parentT = i18n[lang] || i18n.en;
 
+  const trackCards = publishedTracks.map((tr) => ({
+    id: tr.id,
+    slug: tr.slug,
+    icon: TRACK_ICONS[tr.slug] || "📖",
+    titleEn: tr.title_en,
+    titleBn: tr.title_bn || tr.title_en,
+    priceBdt: tr.price_bdt,
+    isFree: tr.is_free,
+    tier: tr.tier,
+    completed: false
+  }));
+
   return (
     <>
       {saveError && (
@@ -131,9 +184,8 @@ export function OnboardingShell() {
         >
           {saveError}
           <div style={{ marginTop: 6, fontSize: 11, fontWeight: 500, color: T.txt1 }}>
-            Apply migration{" "}
-            <code style={{ fontSize: 10 }}>20260528_users_rls.sql</code> in Supabase if this
-            persists.
+            Run migrations <code style={{ fontSize: 10 }}>20260529</code> and{" "}
+            <code style={{ fontSize: 10 }}>20260530</code> in Supabase if this persists.
           </div>
         </div>
       )}
@@ -141,6 +193,7 @@ export function OnboardingShell() {
         T={T}
         parentT={parentT}
         isDark={isDark}
+        tracks={trackCards}
         onComplete={(data) => void handleComplete(data)}
       />
     </>

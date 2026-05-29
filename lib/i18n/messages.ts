@@ -167,6 +167,27 @@ export const assessments: { [trackId: string]: AssessmentQuestion[] } = {
         "কোনো রকম ইনপুট ডাটা অ্যারে ছাড়াই প্রোগ্রাম চালানো"
       ],
       ans: 1
+    },
+    {
+      qEn: "Which library is best for tabular data manipulation in Python?",
+      qBn: "পাইথনে টেবুলার ডেটা ম্যানিপুলেশনের জন্য কোন লাইব্রেরি সবচেয়ে উপযুক্ত?",
+      optsEn: ["Matplotlib", "Pandas", "Flask", "Requests"],
+      optsBn: ["Matplotlib", "Pandas", "Flask", "Requests"],
+      ans: 1
+    },
+    {
+      qEn: "A bar chart is typically used to show:",
+      qBn: "বার চার্ট সাধারণত দেখায়:",
+      optsEn: ["Comparisons across categories", "Only time series", "Password strength", "Network latency only"],
+      optsBn: ["বিভাগ অনুযায়ী তুলনা", "শুধু সময় ধারা", "পাসওয়ার্ড শক্তি", "শুধু নেটওয়ার্ক লেটেন্সি"],
+      ans: 0
+    },
+    {
+      qEn: "Train/test split helps prevent:",
+      qBn: "ট্রেন/টেস্ট স্প্লিট সাহায্য করে প্রতিরোধ করে:",
+      optsEn: ["Overfitting", "Syntax errors", "Missing fonts", "Slow WiFi"],
+      optsBn: ["ওভারফিটিং", "সিনট্যাক্স ত্রুটি", "ফন্ট অনুপস্থিতি", "ধীর ওয়াইফাই"],
+      ans: 0
     }
   ],
   fe: [
@@ -225,6 +246,27 @@ export const assessments: { [trackId: string]: AssessmentQuestion[] } = {
       optsEn: ["Arabic integers: 1, 2, 3", "Upper alphabetic series: A, B, C", "Special characters: #, $, %", "Roman index digits: I, II, III"],
       optsBn: ["সংখ্যা: ১, ২, ৩", "ইংরেজি বড় হাতের অক্ষরমালা: A, B, C", "বিশেষ সাংকেতিক চিহ্ন: #, $, %", "রোমান সংখ্যা সিরিজ: I, II, III"],
       ans: 1
+    },
+    {
+      qEn: "Two-factor authentication (2FA) adds:",
+      qBn: "টু-ফ্যাক্টর অথেন্টিকেশন (2FA) যোগ করে:",
+      optsEn: ["A second verification step", "Faster downloads", "More ads", "Unlimited storage"],
+      optsBn: ["দ্বিতীয় যাচাই ধাপ", "দ্রুত ডাউনলোড", "আরও বিজ্ঞাপন", "আনলিমিটেড স্টোরেজ"],
+      ans: 0
+    },
+    {
+      qEn: "A browser bookmark saves:",
+      qBn: "ব্রাউজার বুকমার্ক সংরক্ষণ করে:",
+      optsEn: ["A page URL for quick access", "Your password in plain text", "The entire hard drive", "Only images"],
+      optsBn: ["দ্রুত অ্যাক্সেসের জন্য পেজ URL", "প্লেইন টেক্সটে পাসওয়ার্ড", "পুরো হার্ড ড্রাইভ", "শুধু ছবি"],
+      ans: 0
+    },
+    {
+      qEn: "Cloud storage lets you:",
+      qBn: "ক্লাউড স্টোরেজ আপনাকে দেয়:",
+      optsEn: ["Access files from multiple devices", "Remove the internet", "Print without a printer", "Skip updates forever"],
+      optsBn: ["একাধিক ডিভাইস থেকে ফাইল অ্যাক্সেস", "ইন্টারনেট সরানো", "প্রিন্টার ছাড়া প্রিন্ট", "চিরকাল আপডেট বাদ"],
+      ans: 0
     }
   ]
 };

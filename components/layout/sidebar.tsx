@@ -23,10 +23,10 @@ export function CourseExplorerSidebar({
   T: any;
   t: any;
   modules: Module[];
-  openMods: { [key: number]: boolean };
-  setOpenMods: React.Dispatch<React.SetStateAction<{ [key: number]: boolean }>>;
-  activeLessonId: number;
-  setActiveLessonId: (id: number) => void;
+  openMods: { [key: string]: boolean };
+  setOpenMods: React.Dispatch<React.SetStateAction<{ [key: string]: boolean }>>;
+  activeLessonId: string;
+  setActiveLessonId: (id: string) => void;
   onPrevious: () => void;
   onNext: () => void;
   isCollapsed?: boolean;

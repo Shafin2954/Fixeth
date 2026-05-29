@@ -1,22 +1,48 @@
 "use client";
 
 import React, { useState } from "react";
-import { i18n, tracks, assessments, fallbackAssessment } from "@/lib/i18n/messages";
-import { Track, AssessmentQuestion } from "@/types/ui";
+import { i18n, assessments, fallbackAssessment } from "@/lib/i18n/messages";
+import type { AssessmentQuestion, Track } from "@/types/ui";
+import type { UiTier } from "@/lib/tier/config";
+
+const ASSESSMENT_SLUG_MAP: Record<string, string> = {
+  "data-science": "ds",
+  "digital-literacy": "dl",
+  "backend-development": "be",
+  "python-foundations": "ds"
+};
 
 export default function Onboarding({
   T,
   parentT,
+  tracks: trackOptions,
   onComplete,
   isDark
 }: {
   T: any;
   parentT: any;
-  onComplete: (data: { lang: string; track: string; goal: string; level: string; assessmentScore?: number; skippedAssessment?: boolean }) => void;
+  tracks: (Track & { slug?: string; priceBdt?: number; isFree?: boolean; tier?: number })[];
+  onComplete: (data: {
+    lang: string;
+    trackId: string;
+    trackTier: UiTier;
+    goal: string;
+    level: string;
+    assessmentScore?: number;
+    skippedAssessment?: boolean;
+  }) => void;
   isDark: boolean;
 }) {
   const [step, setStep] = useState(0);
-  const [data, setData] = useState({ goal: "", level: "", track: "ds", lang: "en" });
+  const defaultTrackId = trackOptions[0]?.id || "";
+  const [data, setData] = useState({
+    goal: "",
+    level: "",
+    trackId: defaultTrackId,
+    trackSlug: trackOptions[0]?.slug || "data-science",
+    trackTier: (trackOptions[0]?.tier ?? 3) as UiTier,
+    lang: "en"
+  });
   const [quizAns, setQuizAns] = useState<{ [key: number]: number }>({});
 
   const t = i18n[data.lang] || parentT;
@@ -85,7 +111,8 @@ export default function Onboarding({
 
   // Retrieve assessment questions based on selected track or fall back to generic
   const getAssessmentQuestions = (): AssessmentQuestion[] => {
-    return assessments[data.track] || fallbackAssessment;
+    const key = ASSESSMENT_SLUG_MAP[data.trackSlug] || "ds";
+    return assessments[key] || fallbackAssessment;
   };
 
   const activeQuestions = getAssessmentQuestions();
@@ -224,6 +251,13 @@ export default function Onboarding({
       <p style={{ color: T.txt1, marginBottom: 24, textAlign: "center", fontSize: 13 }}>
         Toggle tracks seamlessly at any time in your dashboard
       </p>
+      {trackOptions.length === 0 ? (
+        <p style={{ color: T.amber, textAlign: "center", fontSize: 13 }}>
+          {data.lang === "bn"
+            ? "কোনো প্রকাশিত ট্র্যাক নেই। Supabase-এ সিড মাইগ্রেশন চালান।"
+            : "No published tracks found. Run the seed migration in Supabase."}
+        </p>
+      ) : null}
       <div
         style={{
           display: "grid",
@@ -235,19 +269,24 @@ export default function Onboarding({
           marginBottom: 20
         }}
       >
-        {tracks.map((tr) => (
+        {trackOptions.map((tr) => (
           <button
             key={tr.id}
             onClick={() => {
-              setData((p) => ({ ...p, track: tr.id }));
+              setData((p) => ({
+                ...p,
+                trackId: tr.id,
+                trackSlug: tr.slug || tr.id,
+                trackTier: (tr.tier ?? 1) as UiTier
+              }));
               setStep(4);
             }}
             style={{
               padding: "16px",
               borderRadius: 12,
-              background: data.track === tr.id ? T.accentDim : T.bg2,
+              background: data.trackId === tr.id ? T.accentDim : T.bg2,
               border: `2px solid ${
-                data.track === tr.id
+                data.trackId === tr.id
                   ? T.accent
                   : tr.completed
                   ? "#00C8964d"
@@ -280,6 +319,13 @@ export default function Onboarding({
             <div style={{ fontSize: 12, fontWeight: 800, color: T.txt0, lineHeight: 1.4, paddingRight: 12 }}>
               {data.lang === "bn" ? tr.titleBn : tr.titleEn}
             </div>
+            <div style={{ fontSize: 11, color: T.accent, fontWeight: 700, marginTop: 6 }}>
+              {tr.isFree || tr.priceBdt === 0
+                ? data.lang === "bn"
+                  ? "বিনামূল্যে"
+                  : "Free"
+                : `৳${(tr.priceBdt ?? 0).toLocaleString("en-BD")}`}
+            </div>
           </button>
         ))}
       </div>
@@ -311,8 +357,8 @@ export default function Onboarding({
       >
         ✦{" "}
         {data.lang === "bn"
-          ? `নির্বাচিত পথ: ${tracks.find((tr) => tr.id === data.track)?.titleBn || "জেনারেল কোডিং"}. এটি আপনার লেকচার সূচীকে সাজাবে।`
-          : `Active path: ${tracks.find((tr) => tr.id === data.track)?.titleEn || "General Software Foundations"}.`}
+          ? `নির্বাচিত পথ: ${trackOptions.find((tr) => tr.id === data.trackId)?.titleBn || "জেনারেল"}. এটি আপনার লেকচার সূচীকে সাজাবে।`
+          : `Active path: ${trackOptions.find((tr) => tr.id === data.trackId)?.titleEn || "Your track"}.`}
       </div>
 
       <div style={{ maxHeight: "310px", overflowY: "auto", paddingRight: 4, marginBottom: 18 }}>
@@ -374,7 +420,16 @@ export default function Onboarding({
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <button
-          onClick={() => onComplete({ ...data, assessmentScore })}
+          onClick={() =>
+            onComplete({
+              lang: data.lang,
+              trackId: data.trackId,
+              trackTier: data.trackTier,
+              goal: data.goal,
+              level: data.level,
+              assessmentScore
+            })
+          }
           style={{
             background: T.accent,
             border: "none",
@@ -389,7 +444,16 @@ export default function Onboarding({
           {t.startAssessment}
         </button>
         <button
-          onClick={() => onComplete({ ...data, skippedAssessment: true })}
+          onClick={() =>
+            onComplete({
+              lang: data.lang,
+              trackId: data.trackId,
+              trackTier: data.trackTier,
+              goal: data.goal,
+              level: data.level,
+              skippedAssessment: true
+            })
+          }
           style={{
             background: "none",
             border: `1px solid ${T.border}`,

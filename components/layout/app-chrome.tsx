@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
 import { useCourse } from "@/components/providers/course-provider";
+import { tierAllowsScreen, tierUsesLargeText, type NavScreenId } from "@/lib/tier/config";
 
 type NavItem = {
   id: string;
@@ -52,9 +53,11 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     density,
     preferences,
     profileOpen,
-    setProfileOpen
+    setProfileOpen,
+    uiTier
   } = useAppTheme();
   const { activeModule, activeLesson, learnHref } = useCourse();
+  const largeNav = tierUsesLargeText(uiTier);
 
   const isDashboard = pathname === "/dashboard";
 
@@ -108,7 +111,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       icon: Wrench,
       match: (p) => p === "/tools"
     },
-    ...(preferences.contentVisibility.showMentor
+    ...(preferences.contentVisibility.showMentor && uiTier >= 2
       ? [
           {
             id: "mentor",
@@ -119,7 +122,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           }
         ]
       : []),
-    ...(preferences.contentVisibility.showCommunity
+    ...(preferences.contentVisibility.showCommunity && uiTier >= 3
       ? [
           {
             id: "community",
@@ -130,7 +133,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           }
         ]
       : []),
-    ...(preferences.contentVisibility.showCertificates
+    ...(preferences.contentVisibility.showCertificates && uiTier >= 3
       ? [
           {
             id: "certs",
@@ -375,7 +378,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           minHeight: isMobile ? "70px" : density.bottomBarHeight
         }}
       >
-        {NAVIGATION_ITEMS.map((item) => {
+        {NAVIGATION_ITEMS.filter((item) =>
+          tierAllowsScreen(uiTier, item.id as NavScreenId)
+        ).map((item) => {
           const isActive = item.match(pathname);
           return (
             <Link
@@ -405,7 +410,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
               />
               <span
                 style={{
-                  fontSize: isMobile ? 10 : 8,
+                  fontSize: largeNav ? (isMobile ? 11 : 10) : isMobile ? 10 : 8,
                   fontWeight: isActive ? 800 : 500,
                   color: isActive ? T.accent : T.txt1,
                   whiteSpace: "nowrap",

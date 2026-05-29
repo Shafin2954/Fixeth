@@ -48,7 +48,7 @@ export default function NotebookScreen({
   modules: Module[];
   openMods: any;
   setOpenMods: any;
-  activeLessonId: number;
+  activeLessonId: string;
   setActiveLessonId: any;
   onPrevious: any;
   onNext: any;

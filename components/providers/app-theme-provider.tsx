@@ -18,6 +18,7 @@ import {
   syncUserProfile,
   toAppUser
 } from "@/lib/supabase/queries/profile";
+import { normalizeUiTier, type UiTier } from "@/lib/tier/config";
 import type { UserPreferences, UserProfile } from "@/types/ui";
 
 export type { UserPreferences, UserProfile };
@@ -187,6 +188,7 @@ const toRgba = (hex: string, alpha: number) => {
 type AppThemeContextValue = {
   authUser: SupabaseUser;
   profileRow: UserProfileRow | null;
+  uiTier: UiTier;
   user: AppUserProfile;
   setUser: React.Dispatch<React.SetStateAction<AppUserProfile>>;
   preferences: UserPreferences;
@@ -229,6 +231,7 @@ export function AppThemeProvider({
   children
 }: AppThemeProviderProps) {
   const profileRow = initialProfile;
+  const uiTier = normalizeUiTier(profileRow?.ui_tier);
   const [user, setUser] = useState<AppUserProfile>(() =>
     toAppUser(authUser, initialProfile)
   );
@@ -328,6 +331,7 @@ export function AppThemeProvider({
     () => ({
       authUser,
       profileRow,
+      uiTier,
       user,
       setUser,
       preferences,
@@ -350,6 +354,7 @@ export function AppThemeProvider({
     [
       authUser,
       profileRow,
+      uiTier,
       user,
       preferences,
       isDark,

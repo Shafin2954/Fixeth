@@ -1,7 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Module, ChatMessage } from "@/types/ui";
+import { YouTubePlayer } from "@/components/lesson/youtube-player";
+import { LessonNotes } from "@/components/lesson/lesson-notes";
+import { createClient } from "@/lib/supabase/client";
+import { markLessonComplete } from "@/lib/supabase/queries/progress";
+import { useAppTheme } from "@/components/providers/app-theme-provider";
+import { useCourse } from "@/components/providers/course-provider";
+import type { Lesson } from "@/types";
 
 type PracticeItem = {
   q: string;
@@ -31,13 +38,18 @@ const createLocalizedNotes = (selectedLang: string) =>
     ? "📝 আমার কোর্স নোটস:\n• পাইথনে ফাংশন লেখার জন্য 'def' কীওয়ার্ড ব্যবহার করা হয়\n• 'return' স্টেটমেন্ট দিয়ে মান পাঠানো হয়\n• লোকাল স্কোপ ভ্যারিয়েবল শুধুমাত্র ফাংশনের ভেতরেই সক্রিয় থাকে।"
     : "📝 My Personal Lecture Notes:\n• Python functions are defined with the 'def' keyword\n• Use 'return' to send computed results back\n• Local scope keeps variables inside the function body only.";
 
+function parseTimestampToSeconds(ts: string): number {
+  const parts = ts.split(":").map(Number);
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return 0;
+}
+
 export default function GuidedVideoScreen({
   T,
   t,
   modules,
   activeLessonId,
-  aiMsgs,
-  setAiMsgs,
   lang
 }: {
   T: any;
@@ -45,7 +57,7 @@ export default function GuidedVideoScreen({
   modules: Module[];
   openMods: any;
   setOpenMods: any;
-  activeLessonId: number;
+  activeLessonId: string;
   setActiveLessonId: any;
   onPrevious: any;
   onNext: any;
@@ -53,6 +65,11 @@ export default function GuidedVideoScreen({
   setAiMsgs: any;
   lang: string;
 }) {
+  const { authUser } = useAppTheme();
+  const { activeLesson, enrollmentTrackId, refreshCurriculum } = useCourse();
+  const [lessonRow, setLessonRow] = useState<Lesson | null>(null);
+  const [markingComplete, setMarkingComplete] = useState(false);
+  const [completeMsg, setCompleteMsg] = useState<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [activeViewers, setActiveViewers] = useState(148);
   const [videoLang, setVideoLang] = useState<"en" | "bn" | "off">(lang === "bn" ? "bn" : "en");
@@ -79,12 +96,49 @@ export default function GuidedVideoScreen({
   const [userAssessAnswers, setUserAssessAnswers] = useState<{ [key: number]: number }>({});
   const [notesText, setNotesText] = useState(() => createLocalizedNotes(lang));
 
+  const youtubeId =
+    lessonRow?.youtube_video_id || activeLesson?.youtubeVideoId || null;
+
+  useEffect(() => {
+    if (!activeLessonId) return;
+    const supabase = createClient();
+    void supabase
+      .from("lessons")
+      .select("*")
+      .eq("id", activeLessonId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!error && data) setLessonRow(data as Lesson);
+      });
+    setCompleteMsg(null);
+  }, [activeLessonId]);
+
   useEffect(() => {
     setVideoLang(lang === "bn" ? "bn" : "en");
     setChatLog(createLocalizedChatLog(lang));
     setPractices(createLocalizedPractices(lang));
-    setNotesText(createLocalizedNotes(lang));
-  }, [lang]);
+    if (!lessonRow?.notes_md && !lessonRow?.notes_bn_md) {
+      setNotesText(createLocalizedNotes(lang));
+    }
+  }, [lang, lessonRow]);
+
+  const handleMarkComplete = useCallback(async () => {
+    if (!enrollmentTrackId || !activeLessonId) return;
+    setMarkingComplete(true);
+    setCompleteMsg(null);
+    const result = await markLessonComplete(
+      authUser.id,
+      activeLessonId,
+      enrollmentTrackId
+    );
+    setMarkingComplete(false);
+    if (result.error) {
+      setCompleteMsg(result.error);
+      return;
+    }
+    setCompleteMsg(lang === "bn" ? "লেসন সম্পন্ন!" : "Lesson marked complete!");
+    await refreshCurriculum();
+  }, [activeLessonId, authUser.id, enrollmentTrackId, lang, refreshCurriculum]);
 
   const subtitles = {
     en: "Functions group reusable segments of logic to avoid redundant boilerplate code execution.",
@@ -94,6 +148,9 @@ export default function GuidedVideoScreen({
   const handleSeek = (time: string) => {
     setSeekTime(time);
     setPlaying(true);
+    window.dispatchEvent(
+      new CustomEvent("seekVideo", { detail: { seconds: parseTimestampToSeconds(time) } })
+    );
     setTimeout(() => setSeekTime(null), 2000);
   };
 
@@ -142,63 +199,34 @@ export default function GuidedVideoScreen({
     ? ["নোটস", "ট্রান্সক্রিপ্ট", "ভিডিও চ্যাট", "অনুশীলনী"]
     : ["Notes", "Transcript", "Chat with Video", "Practice"];
 
+  const lessonNotesMd =
+    lang === "bn" && lessonRow?.notes_bn_md
+      ? lessonRow.notes_bn_md
+      : lessonRow?.notes_md || "";
+
   // Modular Video Player render logic
   const renderVideoPlayer = () => {
     return (
       <div style={{ width: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <div
-          ref={videoContainerRef}
-          style={{
-            aspectRatio: "16/9",
-            background: "linear-gradient(135deg, #090911 0%, #0c182c 50%, #03140a 100%)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            position: "relative"
-          }}
-        >
-          {/* Visual simulation screen */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              padding: "16px",
-              fontFamily: "monospace",
-              fontSize: 11,
-              color: "rgba(0, 200, 150, 0.4)",
-              lineHeight: 1.7,
-              userSelect: "none"
-            }}
-          >
-            <div style={{ color: "rgba(167, 139, 250, 0.7)" }}>def process_analytics(df):</div>
-            <div style={{ paddingLeft: 20, color: "rgba(74, 158, 255, 0.7)" }}>cleaned = df.dropna()</div>
-            <div style={{ paddingLeft: 20, color: "rgba(74, 158, 255, 0.7)" }}>return cleaned.describe()</div>
-          </div>
+        <div ref={videoContainerRef} style={{ position: "relative" }}>
+          {youtubeId ? (
+            <YouTubePlayer videoId={youtubeId} />
+          ) : (
+            <div
+              style={{
+                aspectRatio: "16/9",
+                background: T.bg2,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: T.txt1,
+                fontSize: 13
+              }}
+            >
+              {lang === "bn" ? "ভিডিও শীঘ্রই আসছে" : "Video coming soon"}
+            </div>
+          )}
 
-          {/* Play button overlay */}
-          <button
-            onClick={() => setPlaying(!playing)}
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: "50%",
-              background: "rgba(255, 255, 255, 0.15)",
-              border: "1.5px solid rgba(255,255,255,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              zIndex: 3,
-              backdropFilter: "blur(4px)",
-              fontSize: 16,
-              color: "#fff",
-              outline: "none"
-            }}
-          >
-            {playing ? "⏸" : "▶"}
-          </button>
-
-          {/* Jump Moment Indicators */}
           {seekTime && (
             <div
               style={{
@@ -218,8 +246,7 @@ export default function GuidedVideoScreen({
             </div>
           )}
 
-          {/* Simulated Live localized Caption */}
-          {videoLang !== "off" && (
+          {videoLang !== "off" && !youtubeId && (
             <div
               style={{
                 position: "absolute",
@@ -327,7 +354,57 @@ export default function GuidedVideoScreen({
             <span style={{ width: 5, height: 5, background: T.accent, borderRadius: "50%", display: "inline-block", boxShadow: `0 0 6px ${T.accent}` }} />
             {activeViewers} live
           </div>
+
+          <button
+            type="button"
+            onClick={() => void handleMarkComplete()}
+            disabled={markingComplete || activeLesson?.done}
+            style={{
+              marginLeft: "auto",
+              background: activeLesson?.done ? T.bg4 : T.accent,
+              border: "none",
+              borderRadius: 6,
+              padding: "6px 12px",
+              fontSize: 10,
+              fontWeight: 800,
+              color: activeLesson?.done ? T.txt1 : "#000",
+              cursor: activeLesson?.done ? "default" : "pointer"
+            }}
+          >
+            {markingComplete
+              ? "..."
+              : activeLesson?.done
+                ? lang === "bn"
+                  ? "✓ সম্পন্ন"
+                  : "✓ Done"
+                : lang === "bn"
+                  ? "সম্পন্ন করুন"
+                  : "Mark Complete"}
+          </button>
         </div>
+
+        {completeMsg && (
+          <div style={{ padding: "6px 12px", fontSize: 11, color: T.accent, fontWeight: 600 }}>
+            {completeMsg}
+          </div>
+        )}
+
+        {lessonNotesMd && (
+          <div
+            style={{
+              padding: "14px 16px",
+              borderTop: `1px solid ${T.border}`,
+              background: T.bg1,
+              maxHeight: 220,
+              overflowY: "auto"
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 800, color: T.txt1, marginBottom: 8 }}>
+              {lang === "bn" ? "লেসন নোট" : "Lesson notes"}
+            </div>
+            <LessonNotes markdown={lessonNotesMd} lang={lang} />
+          </div>
+        )}
       </div>
     );
   };
@@ -381,6 +458,11 @@ export default function GuidedVideoScreen({
         <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
           {activeTab === "Notes" && (
             <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+              {lessonNotesMd ? (
+                <div style={{ marginBottom: 10, maxHeight: 140, overflowY: "auto" }}>
+                  <LessonNotes markdown={lessonNotesMd} lang={lang} />
+                </div>
+              ) : null}
               <textarea
                 value={notesText}
                 onChange={(e) => setNotesText(e.target.value)}

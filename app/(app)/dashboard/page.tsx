@@ -23,13 +23,19 @@ function subscribeEvaluation(onStoreChange: () => void) {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { T, t, lang, user, preferences } = useAppTheme();
-  const { modules, activeLessonId, learnHref } = useCourse();
+  const { T, t, lang, user, preferences, profileRow } = useAppTheme();
+  const { modules, activeLessonId, dashboardStats, loading } = useCourse();
   const evaluation = useSyncExternalStore(
     subscribeEvaluation,
     readStoredEvaluation,
     () => null
   );
+
+  const continueHref = dashboardStats?.currentLessonId
+    ? `/learn/${dashboardStats.currentLessonId}`
+    : activeLessonId
+      ? `/learn/${activeLessonId}`
+      : "/learn";
 
   return (
     <DashboardScreen
@@ -41,7 +47,10 @@ export default function DashboardPage() {
       modules={modules}
       activeLessonId={activeLessonId}
       weeklyGoal={preferences.weeklyGoal}
-      onContinue={() => router.push(learnHref)}
+      dashboardStats={dashboardStats}
+      streak={profileRow?.streak ?? dashboardStats?.streak ?? 0}
+      loading={loading}
+      onContinue={() => router.push(continueHref)}
       onStartAssessment={() => router.push("/onboarding")}
     />
   );

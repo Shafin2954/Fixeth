@@ -5,10 +5,14 @@
 
 export interface Track {
   id: string;
+  slug?: string;
   icon: string;
   titleEn: string;
   titleBn: string;
   completed: boolean;
+  priceBdt?: number;
+  isFree?: boolean;
+  tier?: number;
 }
 
 export interface AssessmentQuestion {
@@ -29,15 +33,16 @@ export interface UserEvaluation {
 }
 
 export interface Lesson {
-  id: number;
+  id: string;
   title: string;
   done: boolean;
   dur: string;
   active?: boolean;
+  youtubeVideoId?: string | null;
 }
 
 export interface Module {
-  id: number;
+  id: string;
   title: string;
   lessons: Lesson[];
 }
@@ -107,4 +112,13 @@ export interface UserPreferences {
     persona: "socratic" | "academic" | "bengali" | "rpg";
     defaultCognitiveLevel: "ELI5" | "Student" | "Pro" | "Research";
   };
+}
+
+export interface DashboardStats {
+  progressPercent: number;
+  lessonsCompleted: number;
+  totalLessons: number;
+  streak: number;
+  trackTitle: string;
+  currentLessonId: string | null;
 }

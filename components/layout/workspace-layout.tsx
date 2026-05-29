@@ -8,7 +8,7 @@ import { useCourse } from "@/components/providers/course-provider";
 
 export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const { T, t, lang, preferences } = useAppTheme();
+  const { T, t, lang, preferences, uiTier } = useAppTheme();
   const {
     modules,
     openMods,
@@ -26,6 +26,7 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const [isResizing, setIsResizing] = useState(false);
 
   const showAiSidebar =
+    uiTier >= 2 &&
     preferences.contentVisibility.showMentor &&
     ["/learn", "/notebook", "/quiz"].some((p) => pathname.startsWith(p));
 

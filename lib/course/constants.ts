@@ -21,4 +21,5 @@ export const CORE_MODULES: Module[] = [
   }
 ];
 
-export const DEFAULT_LESSON_ID = 3;
+/** @deprecated Use enrollment current_lesson_id from Supabase */
+export const DEFAULT_LESSON_ID = "c1000003-0003-4000-8000-000000000003";

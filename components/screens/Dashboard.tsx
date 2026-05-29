@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { AlertCircle, CheckCircle2, ArrowRight, BookOpen, Star, Bot, Award, Trophy, Flame } from "lucide-react";
 import ContentTemplates from "@/components/screens/ContentTemplates";
-import { Module, UserEvaluation } from "@/types/ui";
+import type { DashboardStats, Module, UserEvaluation } from "@/types/ui";
 
 export default function DashboardScreen({
   T,
@@ -15,6 +15,9 @@ export default function DashboardScreen({
   modules = [],
   activeLessonId,
   weeklyGoal = 4,
+  dashboardStats = null,
+  streak = 0,
+  loading = false,
   onStartAssessment
 }: {
   T: any;
@@ -24,8 +27,11 @@ export default function DashboardScreen({
   user?: { name: string };
   evaluation?: UserEvaluation | null;
   modules?: Module[];
-  activeLessonId?: number;
+  activeLessonId?: string;
   weeklyGoal?: number;
+  dashboardStats?: DashboardStats | null;
+  streak?: number;
+  loading?: boolean;
   onStartAssessment?: () => void;
 }) {
   const [isMobile, setIsMobile] = useState(false);
@@ -36,8 +42,17 @@ export default function DashboardScreen({
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-  const totalLessons = modules.reduce((count, module) => count + module.lessons.length, 0);
-  const completedLessons = modules.reduce((count, module) => count + module.lessons.filter((lesson) => lesson.done).length, 0);
+  const totalLessons =
+    dashboardStats?.totalLessons ??
+    modules.reduce((count, module) => count + module.lessons.length, 0);
+  const completedLessons =
+    dashboardStats?.lessonsCompleted ??
+    modules.reduce(
+      (count, module) => count + module.lessons.filter((lesson) => lesson.done).length,
+      0
+    );
+  const enrollmentProgress = dashboardStats?.progressPercent ?? 0;
+  const displayStreak = dashboardStats?.streak ?? streak;
   const currentModule = modules.find((module) => module.lessons.some((lesson) => lesson.id === activeLessonId)) ?? modules[0];
   const currentModuleCompleted = currentModule ? currentModule.lessons.filter((lesson) => lesson.done).length : 0;
   const currentModuleTotal = currentModule?.lessons.length ?? 0;
@@ -110,9 +125,13 @@ export default function DashboardScreen({
               {t.greeting}, {user?.name ?? (lang === "bn" ? "বন্ধু" : "Learner")} 👋
             </h2>
             <p style={{ color: T.txt1, fontSize: isMobile ? 15 : 13, margin: "0 0 14px", lineHeight: 1.4 }}>
-              {lang === "bn"
-                ? "আপনি টানা ১২ দিন ধরে পড়াশোনা সচল রেখেছেন! মডিউল ১ সম্পন্ন করতে আর ৩টি লেকচার বাকি।"
-                : "Continuous activity maintained for 12 days! Complete 3 classes to lock-in Module 1 certification."}
+              {loading
+                ? lang === "bn"
+                  ? "ডেটা লোড হচ্ছে..."
+                  : "Loading your progress..."
+                : lang === "bn"
+                  ? `${dashboardStats?.trackTitle || "আপনার ট্র্যাক"} — ${enrollmentProgress}% সম্পন্ন। ${displayStreak} দিনের স্ট্রিক।`
+                  : `${dashboardStats?.trackTitle || "Your track"} — ${enrollmentProgress}% complete. ${displayStreak}-day streak.`}
             </p>
             {/* Week tracker balls */}
             <div style={{ display: "flex", gap: 6 }}>
@@ -156,7 +175,7 @@ export default function DashboardScreen({
               {t.continueBtn}
             </button>
             <span style={{ fontSize: isMobile ? 12 : 10, color: T.txt1 }}>
-              Syllabus Progress · <strong style={{ color: T.accent }}>{totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0}%</strong>
+              Syllabus Progress · <strong style={{ color: T.accent }}>{enrollmentProgress}%</strong>
             </span>
           </div>
         </div>
@@ -245,7 +264,7 @@ export default function DashboardScreen({
           {[
             { icon: BookOpen, label: t.lessonsCompleted, value: `${completedLessons}/${totalLessons || 0}`, color: T.accent, note: lang === "bn" ? "কোর্স-স্তরের অগ্রগতি" : "Course-level progress" },
             { icon: Star, label: t.quizAvg, value: assessmentLabel, color: T.amber, note: evaluation?.skipped ? (lang === "bn" ? "ডায়াগনস্টিক বাকি" : "Diagnostic pending") : (lang === "bn" ? "সর্বশেষ স্কোর" : "Latest score") },
-            { icon: Flame, label: t.streak, value: activityProgress, color: "#FF5B8A", note: lang === "bn" ? "সাপ্তাহিক লক্ষ্য" : "Weekly goal" },
+            { icon: Flame, label: t.streak, value: `${displayStreak}`, color: "#FF5B8A", note: lang === "bn" ? "টানা দিন" : "Day streak" },
             { icon: Trophy, label: t.certificates, value: `${certificateCount}`, color: T.blue, note: lang === "bn" ? "পূর্ণ মডিউল" : "Completed modules" }
           ].map((card, idx) => (
             <div
