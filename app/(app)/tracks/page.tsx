@@ -13,9 +13,11 @@ export default function TrackLibraryPage() {
   const { T, lang, authUser } = useAppTheme();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set());
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
     Promise.all([
       fetchAllTracksClient(),
       fetchUserEnrollmentsClient(authUser.id)
@@ -23,6 +25,7 @@ export default function TrackLibraryPage() {
       if (!cancelled) {
         setTracks(allTracks);
         setEnrolledIds(new Set(enrollments.map((e) => e.track_id)));
+        setLoading(false);
       }
     });
     return () => {
@@ -31,12 +34,14 @@ export default function TrackLibraryPage() {
   }, [authUser.id]);
 
   const load = useCallback(async () => {
+    setLoading(true);
     const [allTracks, enrollments] = await Promise.all([
       fetchAllTracksClient(),
       fetchUserEnrollmentsClient(authUser.id)
     ]);
     setTracks(allTracks);
     setEnrolledIds(new Set(enrollments.map((e) => e.track_id)));
+    setLoading(false);
   }, [authUser.id]);
 
   const enrolledTrackIds = useMemo(() => enrolledIds, [enrolledIds]);
@@ -48,6 +53,7 @@ export default function TrackLibraryPage() {
       tracks={tracks}
       enrolledTrackIds={enrolledTrackIds}
       userId={authUser.id}
+      loading={loading}
       onEnrolled={load}
     />
   );

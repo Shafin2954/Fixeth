@@ -47,6 +47,147 @@ export default function DashboardScreen({
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  if (loading) {
+    const shimmer = `linear-gradient(90deg, ${T.bg2} 0%, ${T.bg3} 50%, ${T.bg2} 100%)`;
+
+    return (
+      <div style={{ flex: 1, overflowY: "auto", background: T.bg0 }}>
+        <style>{`
+          @keyframes fixeth-shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+          }
+          @keyframes fixeth-breathe {
+            0%, 100% { transform: translateY(0); opacity: 0.7; }
+            50% { transform: translateY(-2px); opacity: 1; }
+          }
+        `}</style>
+
+        <div style={{ maxWidth: 1040, margin: "0 auto", padding: "20px 16px 40px" }}>
+          <div
+            style={{
+              background: `linear-gradient(135deg, ${T.bg2} 0%, ${T.accent}0d 100%)`,
+              border: `1px solid ${T.border}`,
+              borderRadius: 14,
+              padding: 24,
+              marginBottom: 20,
+              boxShadow: T.shadow,
+              overflow: "hidden"
+            }}
+          >
+            <div style={{ display: "grid", gap: 18, gridTemplateColumns: "minmax(0, 1.6fr) minmax(280px, 0.9fr)" }}>
+              <div>
+                <div style={{ display: "grid", gap: 10, maxWidth: 420 }}>
+                  <div style={{ height: 18, width: "42%", borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
+                  <div style={{ height: 42, width: "78%", borderRadius: 12, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
+                  <div style={{ height: 14, width: "64%", borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
+                  <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                    {Array.from({ length: 7 }).map((_, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          width: isMobile ? 36 : 30,
+                          height: isMobile ? 36 : 30,
+                          borderRadius: 8,
+                          background: shimmer,
+                          backgroundSize: "400% 100%",
+                          animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.06}s`
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", justifyContent: "center" }}>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <div style={{ width: 138, height: 42, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
+                  <div style={{ width: 112, height: 42, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite 0.08s" }} />
+                  <div style={{ width: 112, height: 42, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite 0.16s" }} />
+                </div>
+                <div style={{ width: 170, height: 12, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite 0.24s" }} />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 20 }}>
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                style={{
+                  background: T.bg1,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 10,
+                  padding: "14px 16px",
+                  boxShadow: T.shadow,
+                  minHeight: 92,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 14,
+                  animation: "fixeth-breathe 1.9s ease-in-out infinite"
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ width: "58%", height: 10, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.06}s` }} />
+                  <div style={{ width: "42%", height: 22, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", marginTop: 10, animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.06 + 0.05}s` }} />
+                  <div style={{ width: "72%", height: 9, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", marginTop: 10, animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.06 + 0.1}s` }} />
+                </div>
+                <div style={{ width: 36, height: 36, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05}s` }} />
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 20 }}>
+            {[0, 1].map((section) => (
+              <div key={section} style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
+                <div style={{ width: "38%", height: 13, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${section * 0.08}s` }} />
+                <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+                  {Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} style={{ display: "grid", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                        <div style={{ width: "52%", height: 11, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05}s` }} />
+                        <div style={{ width: 36, height: 11, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05 + 0.04}s` }} />
+                      </div>
+                      <div style={{ height: 4, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05 + 0.08}s` }} />
+                      <div style={{ width: "40%", height: 9, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05 + 0.12}s` }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
+            <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
+              <div style={{ width: "36%", height: 13, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 12 }}>
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} style={{ height: 26, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.04}s` }} />
+                ))}
+              </div>
+            </div>
+
+            <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
+              <div style={{ width: "42%", height: 13, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <div style={{ width: 24, height: 24, borderRadius: 6, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05}s` }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ width: `${70 - index * 6}%`, height: 11, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.04 + 0.03}s` }} />
+                      <div style={{ width: `${50 - index * 4}%`, height: 9, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", marginTop: 6, animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.04 + 0.08}s` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
   const totalLessons =
     dashboardStats?.totalLessons ??
     modules.reduce((count, module) => count + module.lessons.length, 0);

@@ -14,6 +14,7 @@ import { fetchFirstLessonIdClient } from "@/lib/supabase/queries/curriculum-clie
 import { themes } from "@/lib/ui/themes";
 import { i18n } from "@/lib/i18n/messages";
 import Onboarding from "@/components/screens/Onboarding";
+import LoadingCanvas from "@/components/ui/loading-canvas";
 import type { Track } from "@/types";
 import type { UiTier } from "@/lib/tier/config";
 
@@ -92,6 +93,7 @@ export function OnboardingShell() {
       goal: string;
       level: string;
       assessmentScore?: number;
+      assessmentPercentage?: number;
       skippedAssessment?: boolean;
     }) => {
       if (!authUser || isSaving) return;
@@ -114,6 +116,23 @@ export function OnboardingShell() {
 
         await completeUserOnboarding(authUser, payload);
 
+        if (typeof window !== "undefined") {
+          const evaluation = {
+            skipped: Boolean(data.skippedAssessment),
+            score: data.assessmentScore,
+            percentage: data.skippedAssessment ? undefined : data.assessmentPercentage ?? 0,
+            completedAt: new Date().toISOString()
+          };
+
+          try {
+            window.localStorage.setItem("fixeth.evaluation", JSON.stringify(evaluation));
+          } catch {
+            // Ignore localStorage write failures and continue the completion flow.
+          }
+
+          window.dispatchEvent(new Event("fixeth:evaluation-changed"));
+        }
+
         router.replace("/dashboard");
         router.refresh();
         if (firstLessonId) {
@@ -132,11 +151,7 @@ export function OnboardingShell() {
   );
 
   if (isLoading || !authUser) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0B0B0F] text-[#EEEEF8]">
-        <div className="text-sm font-semibold text-[#00C896]">Loading Fixeth...</div>
-      </main>
-    );
+    return <LoadingCanvas variant="auth" />;
   }
 
   const baseTheme = themes[isDark ? "dark" : "light"];

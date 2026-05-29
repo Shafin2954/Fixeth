@@ -29,6 +29,7 @@ export default function Onboarding({
     goal: string;
     level: string;
     assessmentScore?: number;
+    assessmentPercentage?: number;
     skippedAssessment?: boolean;
   }) => void;
   isDark: boolean;
@@ -120,6 +121,9 @@ export default function Onboarding({
     (score, question, questionIndex) => score + (quizAns[questionIndex] === question.ans ? 1 : 0),
     0
   );
+  const assessmentPercentage = activeQuestions.length
+    ? Math.round((assessmentScore / activeQuestions.length) * 100)
+    : 0;
 
   const steps = [
     // Step 0: Language Select
@@ -427,7 +431,8 @@ export default function Onboarding({
               trackTier: data.trackTier,
               goal: data.goal,
               level: data.level,
-              assessmentScore
+              assessmentScore,
+              assessmentPercentage
             })
           }
           style={{
@@ -451,6 +456,7 @@ export default function Onboarding({
               trackTier: data.trackTier,
               goal: data.goal,
               level: data.level,
+              assessmentPercentage: 0,
               skippedAssessment: true
             })
           }

@@ -7,18 +7,32 @@ import { useAppTheme } from "@/components/providers/app-theme-provider";
 import { useCourse } from "@/components/providers/course-provider";
 import type { UserEvaluation } from "@/types/ui";
 
+let cachedEvaluationRaw: string | null = null;
+let cachedEvaluationSnapshot: UserEvaluation | null = null;
+
 function readStoredEvaluation(): UserEvaluation | null {
+  if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem("fixeth.evaluation");
-    return raw ? (JSON.parse(raw) as UserEvaluation) : null;
+    const raw = window.localStorage.getItem("fixeth.evaluation");
+    if (raw === cachedEvaluationRaw) return cachedEvaluationSnapshot;
+
+    cachedEvaluationRaw = raw;
+    cachedEvaluationSnapshot = raw ? (JSON.parse(raw) as UserEvaluation) : null;
+    return cachedEvaluationSnapshot;
   } catch {
+    cachedEvaluationRaw = null;
+    cachedEvaluationSnapshot = null;
     return null;
   }
 }
 
 function subscribeEvaluation(onStoreChange: () => void) {
   window.addEventListener("storage", onStoreChange);
-  return () => window.removeEventListener("storage", onStoreChange);
+  window.addEventListener("fixeth:evaluation-changed", onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener("fixeth:evaluation-changed", onStoreChange);
+  };
 }
 
 export default function DashboardPage() {

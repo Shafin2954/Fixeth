@@ -7,6 +7,7 @@ import {
   useAppTheme,
   type UserPreferences
 } from "@/components/providers/app-theme-provider";
+import LoadingCanvas from "@/components/ui/loading-canvas";
 
 function ProfileSettingsContent() {
   const router = useRouter();
@@ -81,11 +82,7 @@ function ProfileSettingsContent() {
 export default function ProfileSettingsPage() {
   return (
     <Suspense
-      fallback={
-        <main className="flex min-h-screen items-center justify-center bg-[#0B0B0F] text-[#EEEEF8]">
-          <div className="text-sm font-semibold text-[#00C896]">Loading...</div>
-        </main>
-      }
+      fallback={<LoadingCanvas variant="profile" showTopBar />}
     >
       <ProfileSettingsContent />
     </Suspense>

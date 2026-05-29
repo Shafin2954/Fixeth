@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { BookOpen, Library, Play } from "lucide-react";
 import type { EnrollmentWithTrack } from "@/lib/supabase/queries/enroll-client";
+import LoadingCanvas from "@/components/ui/loading-canvas";
 
 const TIER_LABEL: Record<number, { en: string; bn: string }> = {
   1: { en: "Tier 1 · Essentials", bn: "টিয়ার ১ · প্রয়োজনীয়" },
@@ -23,6 +24,10 @@ export default function MyTracksScreen({
   loading: boolean;
   onRefresh?: () => void;
 }) {
+  if (loading) {
+    return <LoadingCanvas variant="list" />;
+  }
+
   return (
     <div style={{ flex: 1, overflowY: "auto", background: T.bg0 }}>
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "24px 16px 48px" }}>
@@ -66,9 +71,7 @@ export default function MyTracksScreen({
           </Link>
         </div>
 
-        {loading ? (
-          <p style={{ color: T.txt1, fontSize: 13 }}>{lang === "bn" ? "লোড হচ্ছে..." : "Loading..."}</p>
-        ) : enrollments.length === 0 ? (
+        {enrollments.length === 0 ? (
           <div
             style={{
               background: T.bg1,

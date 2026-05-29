@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import type { Track } from "@/types";
 import { enrollInTrackClient } from "@/lib/supabase/queries/enroll-client";
 import type { UiTier } from "@/lib/tier/config";
+import LoadingCanvas from "@/components/ui/loading-canvas";
 
 const TRACK_ICONS: Record<string, string> = {
   "digital-literacy": "💻",
@@ -33,6 +34,7 @@ export default function TrackLibraryScreen({
   tracks,
   enrolledTrackIds,
   userId,
+  loading = false,
   onEnrolled
 }: {
   T: Record<string, string>;
@@ -40,11 +42,16 @@ export default function TrackLibraryScreen({
   tracks: Track[];
   enrolledTrackIds: Set<string>;
   userId: string;
+  loading?: boolean;
   onEnrolled: () => void;
 }) {
   const router = useRouter();
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  if (loading) {
+    return <LoadingCanvas variant="library" />;
+  }
 
   const handleEnroll = async (track: Track) => {
     if (!track.published) return;

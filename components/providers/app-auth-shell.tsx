@@ -11,6 +11,7 @@ import {
 import { AppThemeProvider } from "@/components/providers/app-theme-provider";
 import { CourseProvider } from "@/components/providers/course-provider";
 import { AppChrome } from "@/components/layout/app-chrome";
+import LoadingCanvas from "@/components/ui/loading-canvas";
 
 export function AppAuthShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -66,11 +67,7 @@ export function AppAuthShell({ children }: { children: React.ReactNode }) {
   }, [router, supabase]);
 
   if (isLoading || !authUser) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0B0B0F] text-[#EEEEF8]">
-        <div className="text-sm font-semibold text-[#00C896]">Loading Fixeth...</div>
-      </main>
-    );
+    return <LoadingCanvas variant="auth" />;
   }
 
   return (
