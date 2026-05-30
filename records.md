@@ -295,3 +295,54 @@ User finishes onboarding UI but never reaches `/dashboard` (stays on `/onboardin
 Curriculum lives in Supabase tables `tracks` → `modules` → `lessons`. There is **no admin UI yet**; register content via SQL (or future seed script). Published tracks appear on `/tracks` via `getAllTracks()`. Learner enrollment is table `enrollments` (not wired from onboarding yet).
 
 
+
+---
+
+## Session 2026-05-30 — Video intelligence, real Notebook & GitHub Codespace
+
+### Supabase wiring fixed
+- Real curriculum/auth/enrollment/progress data lives in project `oxfynuytsnifqqhbmpcv`.
+  The v0-connected integration (`nrahjflthceovpulydlc`) is EMPTY; its injected
+  `NEXT_PUBLIC_SUPABASE_URL/KEY` were pointing the app at the wrong project.
+- New `lib/supabase/config.ts` is the single source of truth. It defaults to the
+  data project and only honors `NEXT_PUBLIC_SUPABASE_DATA_URL` / `_DATA_KEY`
+  overrides (NOT the generic vars). `client.ts`, `server.ts`, `middleware.ts`,
+  and `app/auth/callback/route.ts` all import from it.
+
+### Course provider ↔ live data (already in place, verified)
+- `course-provider.tsx` fetches real modules/lessons; `markLessonComplete()`
+  upserts `progress` and recomputes `enrollments.progress_percent`. Wired to the
+  GuidedVideo "Mark Complete" button.
+
+### Video intelligence (NEW)
+- `lib/supabase/queries/transcript.ts` — fetches `transcript_chunks` per lesson.
+- `lib/ai/byoa.ts` — client-side BYOA LLM (Gemini REST + Ollama) using the user's
+  own key from `preferences.ai`. Zero server inference cost.
+- `lib/ai/video-chat.ts` — keyword retrieval over transcript, prompt building,
+  and timestamp-chip parsing of answers.
+- `GuidedVideo.tsx` — Transcript tab now renders real chunks with live highlight
+  of the current segment; clicking a line seeks the player. Chat-with-Video calls
+  the BYOA model with retrieved transcript context; answer timestamps become
+  clickable jump chips. Progress bar is real (current/duration, click to seek).
+- `youtube-player.tsx` — added `getDuration()` to the handle + `onReady` wiring.
+
+### Notebook — real Python (NEW)
+- `lib/notebook/pyodide.ts` — boots Pyodide (CPython in WASM) from CDN; runs cells,
+  auto-loads imported packages (numpy/pandas), captures stdout/stderr.
+- `lib/supabase/queries/notebooks.ts` — save/list/delete notebooks to the
+  `notebooks` table (per-user) with localStorage mirror/fallback.
+- `Notebook.tsx` — rewritten: notebook list sidebar, create/open/save/delete,
+  add/move/delete cells, real per-cell execution, kernel status.
+
+### Codespace — GitHub connected (NEW)
+- `lib/github/client.ts` — BYOA Personal Access Token (browser-only) → list repos,
+  list files, read file contents via GitHub REST.
+- `Codespace.tsx` — rewritten: Connect-GitHub modal, repo list, loads real repo
+  files into the editor, terminal `python` runs the real Pyodide interpreter.
+
+### TODO / requires user action
+- Run `supabase/migrations/20260602_notebooks_and_publish.sql` in the
+  `oxfynuytsnifqqhbmpcv` SQL editor (this project is NOT reachable via v0's
+  Supabase MCP). It publishes the Git course (`git-version-control`) and creates
+  the `notebooks` table + RLS. Until then: Git course stays hidden and notebooks
+  persist via localStorage only.

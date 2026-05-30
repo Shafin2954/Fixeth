@@ -10,7 +10,10 @@ declare global {
         opts: {
           videoId: string;
           playerVars?: Record<string, number | string>;
-          events?: { onReady?: (e: { target: YtPlayer }) => void };
+          events?: {
+            onReady?: (e: { target: YtPlayer }) => void;
+            onError?: (e: { data: number }) => void;
+          };
         }
       ) => YtPlayer;
       PlayerState: { PLAYING: number; PAUSED: number };
