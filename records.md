@@ -295,6 +295,15 @@ User finishes onboarding UI but never reaches `/dashboard` (stays on `/onboardin
 Curriculum lives in Supabase tables `tracks` → `modules` → `lessons`. There is **no admin UI yet**; register content via SQL (or future seed script). Published tracks appear on `/tracks` via `getAllTracks()`. Learner enrollment is table `enrollments` (not wired from onboarding yet).
 
 
+by sh54:
+
+After finishing up basic ui, we did:
+  1. remove frontend submodule and use root repo as the next js app ui
+
+  2. updated lesson table with youtube video links, and ids
+  3. used those ids to create chunk, embedding for all of them. Automated this process using n8n. This pulls unprocessed lessons from the database, loads the video from youtube using pytubefix and transcribes using local whisper. then creates embedding (dim 768) using ollama nomic-embed-text
+
+  4. Now we are trying to use those embedding to implement chat with ai and timestamp mapping
 
 ---
 
