@@ -12,10 +12,15 @@ export default function DocsViewer({ doc }: { doc: any }) {
   return (
     <div className="min-h-screen bg-[#0d1117] text-gray-200">
       <div className="mx-auto max-w-5xl p-6">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold text-white">{hero.title}</h1>
-          {hero.subtitle && <p className="mt-2 text-gray-400">{hero.subtitle}</p>}
-        </header>
+        <div className="flex items-start justify-between mb-6">
+          <header>
+            <h1 className="text-4xl font-bold text-white">{hero.title}</h1>
+            {hero.subtitle && <p className="mt-2 text-gray-400">{hero.subtitle}</p>}
+          </header>
+          <div className="pt-2">
+            <a href="https://github.com/rafsan-j/Fixeth" target="_blank" rel="noreferrer" className="text-sm text-gray-400 hover:text-white">View on GitHub</a>
+          </div>
+        </div>
 
         {/* Slides / Pitch Deck (simple cards) */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
