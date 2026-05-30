@@ -45,10 +45,10 @@ export default function DashboardPage() {
     () => null
   );
 
-  const continueHref = dashboardStats?.currentLessonId
-    ? `/learn/${dashboardStats.currentLessonId}`
-    : activeLessonId
-      ? `/learn/${activeLessonId}`
+  const continueHref = activeLessonId
+    ? `/learn/${activeLessonId}`
+    : dashboardStats?.currentLessonId
+      ? `/learn/${dashboardStats.currentLessonId}`
       : "/learn";
 
   return (
