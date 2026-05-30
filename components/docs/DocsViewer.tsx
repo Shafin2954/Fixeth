@@ -2,6 +2,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import TeamGrid from './TeamGrid';
+import FeatureMatrix from './FeatureMatrix';
 
 export default function DocsViewer({ doc }: { doc: any }) {
   const content = doc?.content || {};
@@ -37,7 +38,11 @@ export default function DocsViewer({ doc }: { doc: any }) {
           <section key={i} className="mb-6">
             <h2 className="text-2xl font-semibold text-white">{sec.title}</h2>
             <div className="prose prose-invert mt-2 text-gray-200">
-              <ReactMarkdown>{sec.body || ''}</ReactMarkdown>
+              {sec.title && sec.title.toLowerCase().includes('feature matrix') ? (
+                <FeatureMatrix />
+              ) : (
+                <ReactMarkdown>{sec.body || ''}</ReactMarkdown>
+              )}
             </div>
           </section>
         ))}
