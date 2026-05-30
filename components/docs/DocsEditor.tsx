@@ -17,11 +17,13 @@ export default function DocsEditor({ slug }: { slug: string }) {
     });
   }, [slug]);
 
-  async function save(publish?: boolean, override?: boolean) {
+  async function save(publish?: boolean, override?: boolean, start_ts?: string | null, end_ts?: string | null) {
     setLoading(true);
     const body: any = { slug, content: JSON.parse(content), title };
     if (publish !== undefined) body.is_published = publish;
     if (override !== undefined) body.visible_override = override;
+    if (start_ts !== undefined) body.start_ts = start_ts;
+    if (end_ts !== undefined) body.end_ts = end_ts;
     const res = await fetch('/api/docs/admin', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const j = await res.json();
     setLoading(false);
@@ -52,6 +54,35 @@ export default function DocsEditor({ slug }: { slug: string }) {
         <label className="block text-sm font-medium text-gray-300">Content (JSON)</label>
         <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={12} className="w-full p-2 bg-[#010409] border border-gray-700 rounded font-mono text-sm text-gray-200" />
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300">Publish</label>
+          <select value={doc.is_published ? 'true' : 'false'} onChange={(e) => void save(e.target.value === 'true')} className="w-full p-2 bg-[#010409] border border-gray-700 rounded text-gray-200">
+            <option value="false">Draft</option>
+            <option value="true">Published</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300">Override Visibility</label>
+          <select value={doc.visible_override ? 'true' : 'false'} onChange={(e) => void save(undefined, e.target.value === 'true')} className="w-full p-2 bg-[#010409] border border-gray-700 rounded text-gray-200">
+            <option value="false">Use Schedule</option>
+            <option value="true">Force Visible</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-300">Start Date/Time (ISO)</label>
+          <input type="datetime-local" value={doc.start_ts ? new Date(doc.start_ts).toISOString().slice(0,16) : ''} onChange={(e) => void save(undefined, undefined, e.target.value ? new Date(e.target.value).toISOString() : null)} className="w-full p-2 bg-[#010409] border border-gray-700 rounded text-gray-200" />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300">End Date/Time (ISO)</label>
+          <input type="datetime-local" value={doc.end_ts ? new Date(doc.end_ts).toISOString().slice(0,16) : ''} onChange={(e) => void save(undefined, undefined, undefined, e.target.value ? new Date(e.target.value).toISOString() : null)} className="w-full p-2 bg-[#010409] border border-gray-700 rounded text-gray-200" />
+        </div>
+      </div>
+
       <div className="flex gap-2">
         <button onClick={() => void save(false)} className="px-4 py-2 bg-gray-700 text-white rounded">Save Draft</button>
         <button onClick={() => void save(true)} className="px-4 py-2 bg-emerald-600 text-white rounded">Save & Publish</button>

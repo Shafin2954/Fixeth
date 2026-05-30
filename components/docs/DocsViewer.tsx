@@ -23,6 +23,15 @@ export default function DocsViewer({ doc }: { doc: any }) {
           </div>
         </div>
 
+        {/* Table of contents */}
+        <nav className="mb-6">
+          <ul className="flex flex-wrap gap-2">
+            {sections.map((sec: any, idx: number) => (
+              <li key={idx}><a href={`#section-${idx}`} className="text-sm text-gray-400 hover:text-white">{sec.title}</a></li>
+            ))}
+          </ul>
+        </nav>
+
         {/* Slides / Pitch Deck (simple cards) */}
         <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           {slides.map((s: any, i: number) => (
@@ -35,7 +44,7 @@ export default function DocsViewer({ doc }: { doc: any }) {
 
         {/* Sections rendered as markdown blocks */}
         {sections.map((sec: any, i: number) => (
-          <section key={i} className="mb-6">
+          <section id={`section-${i}`} key={i} className="mb-6">
             <h2 className="text-2xl font-semibold text-white">{sec.title}</h2>
             <div className="prose prose-invert mt-2 text-gray-200">
               {sec.title && sec.title.toLowerCase().includes('feature matrix') ? (

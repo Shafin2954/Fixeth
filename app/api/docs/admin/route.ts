@@ -30,7 +30,11 @@ export async function PATCH(req: Request) {
     const { data, error } = await supabase.from('docs').update(updates).eq('slug', parsed.slug).select().single();
     if (error) throw error;
     if (parsed.content !== undefined) {
-      await supabase.from('docs_versions').insert({ docs_id: data.id, version_number: 1, content: parsed.content });
+      // compute next version_number
+      const { data: versions } = await supabase.from('docs_versions').select('version_number').eq('docs_id', data.id);
+      const maxVersion = versions && versions.length ? Math.max(...versions.map(v => v.version_number || 0)) : 0;
+      const nextVersion = maxVersion + 1;
+      await supabase.from('docs_versions').insert({ docs_id: data.id, version_number: nextVersion, content: parsed.content });
     }
     return NextResponse.json({ data });
   } catch (err: any) {
