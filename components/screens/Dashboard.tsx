@@ -12,10 +12,10 @@ import {
   LineElement,
   LinearScale,
   PointElement,
+  TooltipItem,
   Tooltip
 } from "chart.js";
 import { Doughnut, Line } from "react-chartjs-2";
-import CalendarHeatmap from "react-calendar-heatmap";
 import ContentTemplates from "@/components/screens/ContentTemplates";
 import type { DashboardAnalytics, DashboardStats, Module, UserEvaluation } from "@/types/ui";
 
@@ -245,7 +245,6 @@ export default function DashboardScreen({
   const moduleSeries = (dashboardAnalytics?.moduleCompletions ?? []).filter(
     (module) => module.totalLessons > 0
   );
-  const heatmapSeries = dashboardAnalytics?.heatmapCells ?? [];
   const recentCompletions = dashboardAnalytics?.recentActivity ?? [];
   const trendLabels = dailySeries.map((point) =>
     new Date(`${point.date}T00:00:00`).toLocaleDateString(
@@ -360,10 +359,10 @@ export default function DashboardScreen({
         borderColor: T.border,
         borderWidth: 1,
         callbacks: {
-          label: (context: { dataIndex: number; label: string; raw: number }) => {
+          label: (context: TooltipItem<"doughnut">) => {
             const moduleItem = moduleSeries[context.dataIndex];
             if (!moduleItem) return context.label;
-            return `${context.label}: ${context.raw}/${moduleItem.totalLessons}`;
+            return `${context.label}: ${String(context.raw)}/${moduleItem.totalLessons}`;
           }
         }
       }
@@ -702,56 +701,7 @@ export default function DashboardScreen({
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(300px, 1fr)", gap: 16 }}>
-          <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
-            <style>{`
-              .fixeth-heatmap {
-                width: 100%;
-              }
-              .fixeth-heatmap text {
-                fill: ${T.txt2};
-                font-size: 9px;
-              }
-              .fixeth-heatmap rect {
-                rx: 3;
-                ry: 3;
-              }
-              .fixeth-heatmap .color-scale-0 { fill: ${T.bg4}; }
-              .fixeth-heatmap .color-scale-1 { fill: ${T.accent}66; }
-              .fixeth-heatmap .color-scale-2 { fill: ${T.accent}99; }
-              .fixeth-heatmap .color-scale-3 { fill: ${T.accent}CC; }
-              .fixeth-heatmap .color-scale-4 { fill: ${T.accent}; }
-            `}</style>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h3 style={{ fontSize: 13.5, fontWeight: 800, color: T.txt0, margin: 0 }}>
-                {t.completionHeatmap}
-              </h3>
-              <span style={{ fontSize: 10, color: T.txt1 }}>{t.activityLastDays}</span>
-            </div>
-            <div style={{ overflowX: "auto" }}>
-              <CalendarHeatmap
-                className="fixeth-heatmap"
-                classForValue={(value: { date: string; count: number } | undefined) => {
-                  if (!value || value.count === 0) return "color-scale-0";
-                  if (value.count === 1) return "color-scale-1";
-                  if (value.count === 2) return "color-scale-2";
-                  if (value.count === 3) return "color-scale-3";
-                  return "color-scale-4";
-                }}
-                startDate={new Date(Date.now() - (dashboardAnalytics?.timeRangeDays ?? 30) * 86400000)}
-                endDate={new Date()}
-                values={heatmapSeries}
-                showWeekdayLabels
-                gutterSize={4}
-                tooltipDataAttrs={(value: { date?: string; count?: number } | undefined) => ({
-                  "data-tip": value?.date
-                    ? `${value.date}: ${value.count ?? 0}`
-                    : ""
-                })}
-              />
-            </div>
-          </div>
-
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
           <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
             <h3 style={{ fontSize: 13.5, fontWeight: 800, color: T.txt0, margin: "0 0 14px" }}>
               {t.recentCompletions}
