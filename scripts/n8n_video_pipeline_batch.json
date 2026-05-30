@@ -1,0 +1,572 @@
+{
+  "name": "YouTube Video Processing (Hybrid n8n + Python)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "id": "36bcb67a-9823-4725-859f-5d76568b1523",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -3280,
+        -1328
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "lessons",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "processing_status",
+              "condition": "eq",
+              "keyValue": "0"
+            }
+          ]
+        }
+      },
+      "id": "d0992838-0913-4a23-a401-c2b15a2588ff",
+      "name": "Fetch Unprocessed Lessons",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -3088,
+        -1328
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "73ADFcSFcuD467mP",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $input.all().length }}",
+              "operation": "largerEqual",
+              "value2": 1
+            }
+          ]
+        }
+      },
+      "id": "05aa7ae6-d68e-4c38-aa69-65dec79385b9",
+      "name": "Any Lessons To Process?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -3264,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => ({ json: item.json }));"
+      },
+      "id": "ce179576-a17b-4e36-b623-fab7836e298a",
+      "name": "Prepare Lesson List",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2992,
+        -1104
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "ddb40201-4d13-405a-b78b-2ebc9916f8ad",
+      "name": "Process One Lesson at a Time",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -2992,
+        -848
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8001/process-video",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "youtube_id",
+              "value": "={{ $json.youtube_video_id }}"
+            },
+            {
+              "name": "lesson_id",
+              "value": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 600000
+        }
+      },
+      "id": "f5869cb8-57d3-47c3-bb03-6c4ef5e0be10",
+      "name": "Call Python Server (Download + Whisper)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2880,
+        -560
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const segments  = items[0].json.segments || [];\nconst lessonId  = items[0].json.lesson_id;\nconst youtubeId = items[0].json.youtube_id;\nconst title     = items[0].json.title || 'Unknown';\n\nif (!segments.length) {\n  throw new Error(`No segments for lesson ${lessonId}`);\n}\n\nconst TARGET_WORDS = 150;\nconst chunks = [];\nlet buffer = [], wordCount = 0, chunkStart = segments[0].start;\n\nfor (let i = 0; i < segments.length; i++) {\n  const seg = segments[i];\n  buffer.push(seg);\n  wordCount += seg.text.trim().split(/\\s+/).length;\n  const isLast = i === segments.length - 1;\n\n  if (wordCount >= TARGET_WORDS || isLast) {\n    const chunkText = buffer.map(s => s.text.trim()).join(' ').trim();\n    const chunkEnd  = buffer[buffer.length - 1].end;\n    if (chunkText.length > 0) {\n      chunks.push({\n        json: {\n          lesson_id:  lessonId,\n          youtube_id: youtubeId,\n          title:      title,\n          chunk_text: chunkText,\n          start_time: Math.round(chunkStart * 1000) / 1000,\n          end_time:   Math.round(chunkEnd   * 1000) / 1000,\n          chunk_index: chunks.length\n        }\n      });\n    }\n    buffer = []; wordCount = 0;\n    if (!isLast) chunkStart = segments[i + 1].start;\n  }\n}\n\nreturn chunks;"
+      },
+      "id": "fabd36c3-988e-481e-a44a-7def0f92bd9c",
+      "name": "Chunk Segments (~150 words each)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2352,
+        -752
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:11434/api/embeddings",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "nomic-embed-text"
+            },
+            {
+              "name": "prompt",
+              "value": "={{ $json.chunk_text }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "625b9c10-55df-4571-ac66-89bb9c092053",
+      "name": "Get Embedding (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2224,
+        -896
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const embedding = items[0].json.embedding;\n\nif (!embedding || !Array.isArray(embedding)) {\n  throw new Error('Ollama returned no embedding');\n}\nif (embedding.length !== 768) {\n  throw new Error(`Expected 768-dim, got ${embedding.length}`);\n}\n\nconst chunk = $('Chunk Segments (~150 words each)').first().json;\n\nreturn [{\n  json: {\n    lesson_id:  chunk.lesson_id,\n    chunk_text: chunk.chunk_text,\n    start_time: chunk.start_time,\n    end_time:   chunk.end_time,\n    embedding:  embedding\n  }\n}];"
+      },
+      "id": "3e886946-a15d-4118-91ba-a8f9befa049c",
+      "name": "Attach Embedding to Chunk",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2112,
+        -1024
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const chunk = items[0].json;\nreturn [{\n  json: {\n    status:    'chunk_inserted',\n    lesson_id: chunk.lesson_id\n  }\n}];"
+      },
+      "id": "2ff62f28-850e-4229-8dcb-221eed984ef9",
+      "name": "Log Chunk Inserted",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        -1232
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { status: 'no_new_lessons' } }];"
+      },
+      "id": "2789e0cf-43ea-4b7b-8b8e-6c5ab031bd34",
+      "name": "Nothing To Do",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3248,
+        -848
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "transcript_chunks",
+        "dataToSend": "autoMapInputData"
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1984,
+        -1152
+      ],
+      "id": "19850c65-87fc-4f98-a964-c1a46070c6ae",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "73ADFcSFcuD467mP",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "lessons",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processing_status",
+              "fieldValue": "1"
+            }
+          ]
+        }
+      },
+      "id": "1e334992-9506-4996-8f30-946b85c31c25",
+      "name": "Mark Processing Started",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2704,
+        -864
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "73ADFcSFcuD467mP",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.error }}",
+              "operation": "isEmpty"
+            }
+          ]
+        }
+      },
+      "id": "2857f484-bdfe-4370-b9ed-d5e24da92a80",
+      "name": "Transcription OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -2640,
+        -560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "lessons",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Process One Lesson at a Time').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processing_status",
+              "fieldValue": "-1"
+            }
+          ]
+        }
+      },
+      "id": "2dbeef2f-b76a-4d17-9536-137ddfa60a2d",
+      "name": "Mark Error (Skip Lesson)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -2512,
+        -368
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "73ADFcSFcuD467mP",
+          "name": "Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "lessons",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Process One Lesson at a Time').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processing_status",
+              "fieldValue": "2"
+            }
+          ]
+        }
+      },
+      "id": "3a4bb529-bbc9-4e67-8ac2-57637089e16d",
+      "name": "Mark Done",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1728,
+        -1328
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "73ADFcSFcuD467mP",
+          "name": "Supabase account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch Unprocessed Lessons",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Unprocessed Lessons": {
+      "main": [
+        [
+          {
+            "node": "Any Lessons To Process?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Any Lessons To Process?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Lesson List",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Nothing To Do",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Lesson List": {
+      "main": [
+        [
+          {
+            "node": "Process One Lesson at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process One Lesson at a Time": {
+      "main": [
+        [
+          {
+            "node": "Mark Processing Started",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Call Python Server (Download + Whisper)": {
+      "main": [
+        [
+          {
+            "node": "Transcription OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chunk Segments (~150 words each)": {
+      "main": [
+        [
+          {
+            "node": "Get Embedding (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Embedding (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Attach Embedding to Chunk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Attach Embedding to Chunk": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "Log Chunk Inserted",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Processing Started": {
+      "main": [
+        [
+          {
+            "node": "Call Python Server (Download + Whisper)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcription OK?": {
+      "main": [
+        [
+          {
+            "node": "Chunk Segments (~150 words each)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark Error (Skip Lesson)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Chunk Inserted": {
+      "main": [
+        [
+          {
+            "node": "Mark Done",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Error (Skip Lesson)": {
+      "main": [
+        [
+          {
+            "node": "Process One Lesson at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark Done": {
+      "main": [
+        [
+          {
+            "node": "Process One Lesson at a Time",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "c50d6b0b-81d4-467e-803c-002618070571",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "98458fcf2505d29d25619bad1bb39294d8d30e9cf337ed72f00414729e52c535"
+  },
+  "id": "0IZST321gu6vYQn1",
+  "tags": []
+}

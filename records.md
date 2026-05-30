@@ -295,6 +295,212 @@ User finishes onboarding UI but never reaches `/dashboard` (stays on `/onboardin
 Curriculum lives in Supabase tables `tracks` → `modules` → `lessons`. There is **no admin UI yet**; register content via SQL (or future seed script). Published tracks appear on `/tracks` via `getAllTracks()`. Learner enrollment is table `enrollments` (not wired from onboarding yet).
 
 
+1. Data Sources
+Where does your data come from? Select all that apply.
+
+
+Internal (own DB / app data)
+
+External APIs (paid/free)
+
+Public Web (scraping)
+
+Open Datasets (Kaggle, HF, gov)
+
+User Uploads / Bulk Import
+
+IoT / Sensor / Streaming
+
+Third-party / Partner Data
+
+Synthetic / AI-generated Data
+List specific sources — APIs, sites, datasets, partners, sensors, internal systems...
+2. Acquisition Methods
+How do you collect the data?
+
+
+Web Scrapers (Playwright, Puppeteer, Scrapy)
+
+AI Extraction (LLM parsing of unstructured)
+
+MCP Servers for data access
+
+Bulk Upload (CSV/XLSX/PDF intake)
+
+Automated Flows (n8n, Airflow, cron, webhooks)
+
+API Pull / SDK integrations
+
+RSS / Atom Feeds
+
+Email Inbox / Inbound Parsing
+
+OCR (Tesseract, Donut, Textract)
+
+Speech-to-Text (Whisper, Deepgram)
+Scrapers / crawlers used
+e.g. Playwright headless, Scrapy spiders, Crawlee, Firecrawl, anti-bot strategies...
+MCP servers for data access
+e.g. Postgres MCP, Filesystem MCP, custom MCP exposing internal warehouse...
+Bulk upload UI, automated flows (n8n / Airflow / cron / webhooks), AI-driven extraction details...
+3. Parsing, Formats & Cleaning
+Raw formats handled and how you normalize them.
+
+JSON
+CSV
+XLSX
+PDF
+Parquet
+Avro
+XML
+YAML
+JSONL
+Markdown
+HTML
+Images
+Audio
+Video
+Protobuf
+Parsers used
+e.g. Unstructured.io, PyPDF, Cheerio, BeautifulSoup, pandas, LLM JSON-mode parsing...
+Formatters / converters
+e.g. csvkit, pandoc, xlsxwriter, Markdown→HTML, JSON↔Parquet via DuckDB...
+Data cleaning & enrichment
+Dedup, normalization, geocoding, entity resolution, AI enrichment...
+Schema validation
+Zod, Pydantic, JSON Schema, Great Expectations, contract tests...
+4. Storage Targets
+
+Relational (Postgres, MySQL)
+
+NoSQL (Mongo, Dynamo, Firestore)
+
+Vector DB (pgvector, Pinecone, Weaviate)
+
+Object Storage (S3, R2, GCS)
+
+Data Warehouse (BigQuery, Snowflake, DuckDB)
+
+Lakehouse (Delta, Iceberg, Hudi)
+
+Graph DB (Neo4j, ArangoDB)
+
+Cache / KV (Redis, Memcached)
+Schema design, partitioning, indexes, retention, tiered storage...
+5. Visualization (open source preferred)
+
+Recharts
+
+Chart.js
+
+D3.js
+
+Plotly
+
+Apache ECharts
+
+Vega/Vega-Lite
+
+Observable
+
+Superset
+
+Metabase
+
+Grafana
+
+Kibana
+
+Streamlit
+
+Dash
+Visualization details
+Chart types, interactivity, real-time updates, accessibility...
+Dashboards & reports
+Superset/Metabase/Grafana boards, scheduled PDF reports, embedded analytics...
+6. Insights — AI, ML & Non-AI
+
+Classical ML (scikit-learn, XGBoost, LightGBM)
+
+Deep Learning (PyTorch, TensorFlow, JAX)
+
+LLM Inference / RAG over data
+
+Forecasting (Prophet, statsmodels, NeuralProphet)
+
+Anomaly Detection
+
+Clustering / Segmentation
+
+Rule Engine / Heuristics (non-AI)
+
+Statistical Analysis
+AI / ML details
+Models, features, training data, evaluation metrics...
+Non-AI analytics
+SQL aggregations, statistical tests, deterministic rules, KPIs...
+How are insights delivered to users?
+In-app dashboards, alerts, AI summaries, email digests, Slack bots...
+7. Pipelines & Orchestration
+Orchestration
+Event-driven (lesson completion → progress write → enrollment %), Realtime-ready
+Scheduling / Triggers
+Cron, pg_cron, event-driven webhooks...
+Streaming / Real-time
+Supabase realtime
+8. Outbound — APIs & Distribution
+Outbound APIs
+REST/GraphQL endpoints, auth, rate limits, OpenAPI docs...
+Webhooks & exports
+Outbound webhooks, CSV/XLSX/PDF exports, S3 drops...
+Embeddings / model serving
+Embedding API, MCP server we expose, hosted inference endpoints...
+9. Open Source Stack
+List the open-source tools you used across the data lifecycle and what role each played.
+
+PostgreSQL, Supabase, Next.js, React, TypeScript, Pyodide, Playwright, Vercel AI SDK, Tailwind, next-intl
+10. Quality, Governance & Observability
+Data quality
+Tests, freshness SLAs, completeness checks, Great Expectations / Soda...
+Privacy & compliance
+PII handling, consent, GDPR, anonymization, access controls...
+Lineage & observability
+OpenLineage, Marquez, dbt docs, logging, alerting...
+Cost & performance
+Caching, batching, partitioning, cheap-model routing, infra cost notes...
+Anything else about your data stack?
+Novel architectures, AI-native patterns, agent-driven data ops, future roadmap...
+Publish local environment to internet
+Open-source / free tunneling tools used to expose a local dev server to the internet (webhooks, demos, MCP, OAuth callbacks).
+
+
+ngrok
+
+Cloudflare Tunnel (cloudflared)
+
+Tailscale Funnel
+
+localtunnel
+
+Pinggy
+
+bore
+
+frp (fast reverse proxy)
+
+Serveo (SSH-based)
+
+PageKite
+
+Expose (Beyond Code)
+
+zrok (OpenZiti)
+
+GitHub Codespaces port forwarding
+vercel
+Tunneling usage notes
+e.g. ngrok with reserved domain + basic-auth used to receive Stripe webhooks during dev; Cloudflare Tunnel for always-on MCP server with Access policy...
+
 
 ---
 
