@@ -20,11 +20,13 @@ import {
   fetchEnrollmentForTrackClient,
   fetchTrackIdForLessonClient
 } from "@/lib/supabase/queries/enroll-client";
+import { normalizeUiTier, type UiTier } from "@/lib/tier/config";
 
 type CourseContextValue = {
   modules: Module[];
   loading: boolean;
   enrollmentTrackId: string | null;
+  activeTrackTier: UiTier;
   activeLessonId: string;
   setActiveLessonId: (id: string) => void;
   openMods: Record<string, boolean>;
@@ -66,6 +68,7 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
   const [openMods, setOpenMods] = useState<Record<string, boolean>>({});
   const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [activeTrackTier, setActiveTrackTier] = useState<UiTier>(1);
   const [aiMsgs, setAiMsgs] = useState<ChatMessage[]>([
     {
       role: "ai",
@@ -91,12 +94,16 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
     if (!enrollment?.track_id) {
       setModules([]);
       setEnrollmentTrackId(null);
+      setActiveTrackTier(1);
       setDashboardStats(null);
       setLoading(false);
       return;
     }
 
     setEnrollmentTrackId(enrollment.track_id);
+    setActiveTrackTier(
+      normalizeUiTier(enrollment.track?.tier ?? 1)
+    );
     const curriculum = await fetchCurriculumForTrack(
       enrollment.track_id,
       completed,
@@ -212,6 +219,7 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
       modules: modulesWithActive,
       loading,
       enrollmentTrackId,
+      activeTrackTier,
       activeLessonId,
       setActiveLessonId,
       openMods,
@@ -230,6 +238,7 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
       modulesWithActive,
       loading,
       enrollmentTrackId,
+      activeTrackTier,
       activeLessonId,
       setActiveLessonId,
       openMods,

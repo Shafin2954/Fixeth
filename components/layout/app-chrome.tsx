@@ -53,8 +53,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     setProfileOpen,
     uiTier
   } = useAppTheme();
-  const { activeModule, activeLesson, learnHref } = useCourse();
-  const largeNav = tierUsesLargeText(uiTier);
+  const { activeModule, activeLesson, learnHref, activeTrackTier } = useCourse();
+  const effectiveUiTier = activeTrackTier ?? uiTier;
+  const largeNav = tierUsesLargeText(effectiveUiTier);
 
   const isDashboard = pathname === "/dashboard";
 
@@ -108,7 +109,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       icon: Wrench,
       match: (p) => p === "/tools"
     },
-    ...(preferences.contentVisibility.showMentor && uiTier >= 2
+    ...(preferences.contentVisibility.showMentor && effectiveUiTier >= 2
       ? [
           {
             id: "mentor",
@@ -119,7 +120,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           }
         ]
       : []),
-    ...(preferences.contentVisibility.showCommunity && uiTier >= 3
+    ...(preferences.contentVisibility.showCommunity && effectiveUiTier >= 3
       ? [
           {
             id: "community",
@@ -130,7 +131,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           }
         ]
       : []),
-    ...(preferences.contentVisibility.showCertificates && uiTier >= 3
+    ...(preferences.contentVisibility.showCertificates && effectiveUiTier >= 3
       ? [
           {
             id: "certs",
@@ -376,7 +377,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         }}
       >
         {NAVIGATION_ITEMS.filter((item) =>
-          tierAllowsScreen(uiTier, item.id as NavScreenId)
+          tierAllowsScreen(effectiveUiTier, item.id as NavScreenId)
         ).map((item) => {
           const isActive = item.match(pathname);
           return (

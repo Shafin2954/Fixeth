@@ -18,15 +18,17 @@ export function WorkspaceLayout({ children }: { children: React.ReactNode }) {
     handlePreviousLesson,
     handleNextLesson,
     aiMsgs,
-    setAiMsgs
+    setAiMsgs,
+    activeTrackTier
   } = useCourse();
+  const effectiveUiTier = activeTrackTier ?? uiTier;
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [rightSidebarWidth, setRightSidebarWidth] = useState(290);
   const [isResizing, setIsResizing] = useState(false);
 
   const showAiSidebar =
-    uiTier >= 2 &&
+    effectiveUiTier >= 2 &&
     preferences.contentVisibility.showMentor &&
     ["/learn", "/notebook", "/quiz"].some((p) => pathname.startsWith(p));
 

@@ -85,12 +85,21 @@ export function YouTubePlayer({ videoId, onReady, className }: Props) {
       if (cancelled || !containerRef.current || !window.YT?.Player) return;
 
       playerRef.current?.destroy();
+      containerRef.current.innerHTML = "";
       playerRef.current = new window.YT.Player(containerRef.current, {
         videoId,
-        playerVars: { rel: 0, modestbranding: 1 },
+        playerVars: {
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          origin: window.location.origin
+        },
         events: {
           onReady: () => {
             if (!cancelled) onReady?.(buildHandle());
+          },
+          onError: (event) => {
+            console.error("YouTube player error", event);
           }
         }
       });
