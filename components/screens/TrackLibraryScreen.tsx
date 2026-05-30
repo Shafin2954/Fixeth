@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import type { Track } from "@/types";
 import { enrollInTrackClient } from "@/lib/supabase/queries/enroll-client";
+import { useAppTheme } from "@/components/providers/app-theme-provider";
 import type { UiTier } from "@/lib/tier/config";
 import LoadingCanvas from "@/components/ui/loading-canvas";
 
@@ -47,6 +48,7 @@ export default function TrackLibraryScreen({
   onEnrolled: () => void;
 }) {
   const router = useRouter();
+  const { refreshProfile } = useAppTheme();
   const [enrollingId, setEnrollingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
@@ -78,6 +80,7 @@ export default function TrackLibraryScreen({
           ? "সফলভাবে ভর্তি হয়েছে! শেখা শুরু করুন।"
           : "Enrolled successfully! Start learning."
     });
+    await refreshProfile();
     onEnrolled();
 
     if (result.firstLessonId) {

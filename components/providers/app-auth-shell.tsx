@@ -29,6 +29,11 @@ export function AppAuthShell({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const refreshProfile = useCallback(async () => {
+    if (!authUser) return;
+    await loadProfile(authUser);
+  }, [authUser, loadProfile]);
+
   useEffect(() => {
     let isMounted = true;
 
@@ -74,6 +79,7 @@ export function AppAuthShell({ children }: { children: React.ReactNode }) {
     <AppThemeProvider
       authUser={authUser}
       initialProfile={profileRow}
+      refreshProfile={refreshProfile}
       onSignOut={handleSignOut}
     >
       <CourseProvider>

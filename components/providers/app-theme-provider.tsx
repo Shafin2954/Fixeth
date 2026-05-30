@@ -203,6 +203,7 @@ type AppThemeContextValue = {
   profileOpen: boolean;
   setProfileOpen: React.Dispatch<React.SetStateAction<boolean>>;
   syncUser: (next: AppUserProfile) => Promise<void>;
+  refreshProfile: () => Promise<void>;
   signOut: () => Promise<void>;
   DEFAULT_USER: AppUserProfile;
   DEFAULT_PREFERENCES: UserPreferences;
@@ -220,6 +221,7 @@ export function useAppTheme() {
 type AppThemeProviderProps = {
   authUser: SupabaseUser;
   initialProfile: UserProfileRow | null;
+  refreshProfile: () => Promise<void>;
   onSignOut: () => Promise<void>;
   children: React.ReactNode;
 };
@@ -227,6 +229,7 @@ type AppThemeProviderProps = {
 export function AppThemeProvider({
   authUser,
   initialProfile,
+  refreshProfile,
   onSignOut,
   children
 }: AppThemeProviderProps) {
@@ -346,6 +349,7 @@ export function AppThemeProvider({
       profileOpen,
       setProfileOpen,
       syncUser,
+      refreshProfile,
       signOut,
       DEFAULT_USER,
       DEFAULT_PREFERENCES,
@@ -364,6 +368,7 @@ export function AppThemeProvider({
       density,
       profileOpen,
       syncUser,
+      refreshProfile,
       signOut
     ]
   );
