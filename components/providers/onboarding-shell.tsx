@@ -30,6 +30,7 @@ const toRgba = (hex: string, alpha: number) => {
 const TRACK_ICONS: Record<string, string> = {
   "digital-literacy": "💻",
   "data-science": "📊",
+  "git-vcs": "🔀",
   "python-foundations": "🐍",
   "git-version-control": "🔀",
   "backend-development": "⚙️",

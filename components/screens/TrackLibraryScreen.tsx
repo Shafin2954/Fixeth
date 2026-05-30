@@ -12,6 +12,7 @@ import LoadingCanvas from "@/components/ui/loading-canvas";
 const TRACK_ICONS: Record<string, string> = {
   "digital-literacy": "💻",
   "data-science": "📊",
+  "git-vcs": "🔀",
   "python-foundations": "🐍",
   "git-version-control": "🔀",
   "backend-development": "⚙️",
@@ -226,6 +227,7 @@ function TrackCard({
       : "Free"
     : `৳${(track.price_bdt ?? 0).toLocaleString("en-BD")}`;
   const icon = TRACK_ICONS[track.slug] || "📖";
+  const skillsLabel = (track.skills || []).slice(0, 3).join(" · ");
 
   return (
     <article
@@ -259,7 +261,13 @@ function TrackCard({
         {title}
       </h3>
       {desc ? (
-        <p style={{ margin: 0, fontSize: 12, color: T.txt1, lineHeight: 1.45, flex: 1 }}>{desc}</p>
+        <p style={{ margin: 0, fontSize: 12, color: T.txt1, lineHeight: 1.45 }}>{desc}</p>
+      ) : null}
+      {skillsLabel ? (
+        <p style={{ margin: "8px 0 0", fontSize: 11, color: T.txt2, lineHeight: 1.4 }}>
+          {lang === "bn" ? "দক্ষতা: " : "Skills: "}
+          {skillsLabel}
+        </p>
       ) : null}
       <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.accent }}>{priceLabel}</p>
 
