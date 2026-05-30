@@ -2,10 +2,23 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Module, ChatMessage } from "@/types/ui";
-import { YouTubePlayer } from "@/components/lesson/youtube-player";
+import { YouTubePlayer, type YouTubePlayerHandle } from "@/components/lesson/youtube-player";
 import { LessonNotes } from "@/components/lesson/lesson-notes";
 import { createClient } from "@/lib/supabase/client";
 import { markLessonComplete } from "@/lib/supabase/queries/progress";
+import {
+  fetchTranscriptChunks,
+  formatSeconds,
+  type TranscriptChunk
+} from "@/lib/supabase/queries/transcript";
+import { runChat, isAiConfigured, AiNotConfiguredError, type AiPrefs } from "@/lib/ai/byoa";
+import {
+  retrieveRelevantChunks,
+  buildContext,
+  buildSystemPrompt,
+  buildUserPrompt,
+  parseAnswerSegments
+} from "@/lib/ai/video-chat";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
 import { useCourse } from "@/components/providers/course-provider";
 import type { Lesson } from "@/types";
@@ -38,13 +51,6 @@ const createLocalizedNotes = (selectedLang: string) =>
     ? "📝 আমার কোর্স নোটস:\n• পাইথনে ফাংশন লেখার জন্য 'def' কীওয়ার্ড ব্যবহার করা হয়\n• 'return' স্টেটমেন্ট দিয়ে মান পাঠানো হয়\n• লোকাল স্কোপ ভ্যারিয়েবল শুধুমাত্র ফাংশনের ভেতরেই সক্রিয় থাকে।"
     : "📝 My Personal Lecture Notes:\n• Python functions are defined with the 'def' keyword\n• Use 'return' to send computed results back\n• Local scope keeps variables inside the function body only.";
 
-function parseTimestampToSeconds(ts: string): number {
-  const parts = ts.split(":").map(Number);
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
-  return 0;
-}
-
 export default function GuidedVideoScreen({
   T,
   t,
@@ -65,7 +71,7 @@ export default function GuidedVideoScreen({
   setAiMsgs: any;
   lang: string;
 }) {
-  const { authUser } = useAppTheme();
+  const { authUser, preferences } = useAppTheme();
   const { activeLesson, enrollmentTrackId, refreshCurriculum } = useCourse();
   const [lessonRow, setLessonRow] = useState<Lesson | null>(null);
   const [markingComplete, setMarkingComplete] = useState(false);
@@ -74,6 +80,12 @@ export default function GuidedVideoScreen({
   const [activeViewers, setActiveViewers] = useState(148);
   const [videoLang, setVideoLang] = useState<"en" | "bn" | "off">(lang === "bn" ? "bn" : "en");
   const [dockOnSide, setDockOnSide] = useState(true);
+
+  const [transcript, setTranscript] = useState<TranscriptChunk[]>([]);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [chatLoading, setChatLoading] = useState(false);
+  const playerHandleRef = useRef<YouTubePlayerHandle | null>(null);
 
   const videoContainerRef = useRef<HTMLDivElement>(null);
 
@@ -100,7 +112,10 @@ export default function GuidedVideoScreen({
     lessonRow?.youtube_video_id || activeLesson?.youtubeVideoId || null;
 
   useEffect(() => {
-    if (!activeLessonId) return;
+    if (!activeLessonId) {
+      setTranscript([]);
+      return;
+    }
     const supabase = createClient();
     void supabase
       .from("lessons")
@@ -110,8 +125,27 @@ export default function GuidedVideoScreen({
       .then(({ data, error }) => {
         if (!error && data) setLessonRow(data as Lesson);
       });
+    void fetchTranscriptChunks(activeLessonId).then(setTranscript);
+    setCurrentTime(0);
     setCompleteMsg(null);
   }, [activeLessonId]);
+
+  // Track the real playback position to highlight the transcript and show time.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const handle = playerHandleRef.current;
+      if (!handle) return;
+      setCurrentTime(handle.getCurrentTime());
+      const dur = handle.getDuration();
+      if (dur && dur !== duration) setDuration(dur);
+    }, 1000);
+    return () => clearInterval(id);
+  }, [duration]);
+
+  const handlePlayerReady = useCallback((handle: YouTubePlayerHandle) => {
+    playerHandleRef.current = handle;
+    setTimeout(() => setDuration(handle.getDuration()), 600);
+  }, []);
 
   useEffect(() => {
     setVideoLang(lang === "bn" ? "bn" : "en");
@@ -145,43 +179,63 @@ export default function GuidedVideoScreen({
     bn: "ফাংশন মূলত কোডের পুনঃব্যবহারযোগ্য অংশগুলোকে এক গ্রুপে সাজায় যাতে একই কোড বারবার লিখতে না হয়।"
   };
 
-  const handleSeek = (time: string) => {
-    setSeekTime(time);
+  const activeLessonTitle =
+    modules
+      .find((m) => m.lessons.some((l) => l.id === activeLessonId))
+      ?.lessons.find((l) => l.id === activeLessonId)?.title ||
+    lessonRow?.title_en ||
+    (lang === "bn" ? "এই লেসন" : "this lesson");
+
+  const seekToSeconds = useCallback((seconds: number) => {
     setPlaying(true);
-    window.dispatchEvent(
-      new CustomEvent("seekVideo", { detail: { seconds: parseTimestampToSeconds(time) } })
-    );
-    setTimeout(() => setSeekTime(null), 2000);
-  };
-
-  const handleLocalChat = () => {
-    if (!chatInput.trim()) return;
-    const txt = chatInput;
-    setChatInput("");
-
-    const isQuestionWanted = /quiz|questions|test|অনুশীলন|কুইজ/i.test(txt);
-
-    const userMsg: ChatMessage = { role: "user", text: txt };
-    let aiMsg: ChatMessage = { role: "ai", text: "" };
-
-    if (isQuestionWanted) {
-      aiMsg.text = lang === "bn"
-        ? "ভিডিও থেকে অনুশীলনীর কুইজ প্রশ্ন প্রস্তুত করা হয়েছে! নিচে 'অনুশীলনী' ট্যাব চেক করুন।"
-        : "I have prepared custom practice statements for you! Check the 'Practice' tab below.";
-      setActiveTab("Practice");
-    } else if (txt.toLowerCase().includes("return") || txt.includes("রিটার্ন")) {
-      aiMsg.text = lang === "bn"
-        ? "হ্যাঁ! রিটার্ন কিওয়ার্ড ফাংশনের কাজ শেষ করে মান প্রেরণ করে। উদাহরণস্বরূপ ভিডিওর ১৪:৩২ সেকেন্ডের অংশটি দেখুন।"
-        : "Perfect scope tracker. The `return` keyword is fully covered around 14:32 in this sequence.";
-      aiMsg.timestamp = "14:32";
+    const handle = playerHandleRef.current;
+    if (handle) {
+      handle.seekTo(seconds);
+      handle.play();
     } else {
-      aiMsg.text = lang === "bn"
-        ? "আমি আপনার প্রশ্নটি ভিডিওর ট্রান্সক্রিপ্ট এবং নোটে মিলিয়ে খুঁজেছি। এ বিষয়ে আরো বিস্তারিত তথ্য নিচে যুক্ত রয়েছে।"
-        : "I've indexed your question against the lesson transcripts. Refer to the specific timestamps below.";
+      window.dispatchEvent(new CustomEvent("seekVideo", { detail: { seconds } }));
+    }
+    setCurrentTime(seconds);
+    setSeekTime(formatSeconds(seconds));
+    setTimeout(() => setSeekTime(null), 2000);
+  }, []);
+
+  const handleChat = useCallback(async () => {
+    const question = chatInput.trim();
+    if (!question || chatLoading) return;
+    setChatInput("");
+    setChatLog((p) => [...p, { role: "user", text: question }]);
+
+    const prefs = preferences.ai as unknown as AiPrefs;
+    const configHint =
+      lang === "bn"
+        ? "চ্যাট চালু করতে সেটিংস → AI মেন্টর-এ আপনার নিজের API কী যুক্ত করুন (BYOA)।"
+        : "Add your own API key in Settings → AI Mentor (BYOA) to enable chat with this video.";
+
+    if (!isAiConfigured(prefs)) {
+      setChatLog((p) => [...p, { role: "ai", text: configHint }]);
+      return;
     }
 
-    setChatLog((p) => [...p, userMsg, aiMsg]);
-  };
+    setChatLoading(true);
+    try {
+      const relevant = retrieveRelevantChunks(question, transcript);
+      const context = buildContext(relevant);
+      const system = buildSystemPrompt(activeLessonTitle, lang, prefs.persona);
+      const answer = await runChat(prefs, system, [
+        { role: "user", content: buildUserPrompt(question, context) }
+      ]);
+      setChatLog((p) => [...p, { role: "ai", text: answer }]);
+    } catch (err) {
+      const text =
+        err instanceof AiNotConfiguredError
+          ? configHint
+          : `⚠️ ${(err as Error).message}`;
+      setChatLog((p) => [...p, { role: "ai", text }]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatInput, chatLoading, preferences, transcript, activeLessonTitle, lang]);
 
   const handleFullscreen = () => {
     if (videoContainerRef.current) {
@@ -210,7 +264,7 @@ export default function GuidedVideoScreen({
       <div style={{ width: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
         <div ref={videoContainerRef} style={{ position: "relative" }}>
           {youtubeId ? (
-            <YouTubePlayer videoId={youtubeId} />
+            <YouTubePlayer videoId={youtubeId} onReady={handlePlayerReady} />
           ) : (
             <div
               style={{
@@ -273,21 +327,44 @@ export default function GuidedVideoScreen({
         {/* Sub Player Control strip */}
         <div style={{ background: T.bg2, padding: "8px 12px", display: "flex", alignItems: "center", gap: 12, borderTop: `1px solid ${T.border}`, flexWrap: "wrap" }}>
           <button
-            onClick={() => setPlaying(!playing)}
+            onClick={() => {
+              const handle = playerHandleRef.current;
+              if (!handle) return;
+              if (playing) {
+                handle.pause();
+                setPlaying(false);
+              } else {
+                handle.play();
+                setPlaying(true);
+              }
+            }}
             style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: T.txt0, outline: "none" }}
           >
             {playing ? "⏸" : "▶"}
           </button>
 
-          {/* Play Line */}
-          <div style={{ flex: 1, minWidth: 100, height: 3, background: T.bg4, borderRadius: 2, position: "relative" }}>
-            <div style={{ width: "52%", height: "100%", background: T.accent, borderRadius: 2 }} />
-            <div style={{ position: "absolute", left: "14%", top: "50%", transform: "translateY(-50%)", width: 4, height: 4, borderRadius: "50%", background: T.amber }} />
-            <div style={{ position: "absolute", left: "52%", top: "50%", transform: "translateY(-50%)", width: 4, height: 4, borderRadius: "50%", background: T.amber }} />
+          {/* Seekable progress line (click to jump) */}
+          <div
+            onClick={(e) => {
+              if (!duration) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+              seekToSeconds(ratio * duration);
+            }}
+            style={{ flex: 1, minWidth: 100, height: 5, background: T.bg4, borderRadius: 2, position: "relative", cursor: "pointer" }}
+          >
+            <div
+              style={{
+                width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%`,
+                height: "100%",
+                background: T.accent,
+                borderRadius: 2
+              }}
+            />
           </div>
 
           <span style={{ fontSize: 9, color: T.txt1, fontFamily: "monospace" }}>
-            14:32 / 24:18
+            {formatSeconds(currentTime)} / {formatSeconds(duration)}
           </span>
 
           {/* Captions selector */}
@@ -490,33 +567,42 @@ export default function GuidedVideoScreen({
 
           {activeTab === "Transcript" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {[
-                { time: "12:05", textEn: "Today we will analyze how variables act inside scoped blocks.", textBn: "আজকে আমরা আলোচনা করব কীভাবে ভ্যারিয়েবল লোকাল ব্লকের ভেতর কাজ করে।" },
-                { time: "14:32", textEn: "The 'return' parameter yields a value and releases process threads.", textBn: "রিটার্ন কিওয়ার্ডটি ফাংশন সম্পন্ন করে এবং প্রস্তুতকৃত মানটিকে ব্যাক করে পাঠায়।", highlight: true },
-                { time: "18:50", textEn: "Let us review an exercise using pandas DataFrame instances.", textBn: "চলুন এবার প্যান্ডাস ডেটাফ্রেম ব্যবহার করে একটি বাস্তব ব্যবহারিক উদাহরণ দেখি।" }
-              ].map((item, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => handleSeek(item.time)}
-                  style={{
-                    display: "flex",
-                    gap: 12,
-                    padding: "8px 10px",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    background: item.highlight ? T.accentDim : "transparent",
-                    border: item.highlight ? `1px solid ${T.accent}33` : `1px solid ${T.border}33`,
-                    transition: "background 0.1s"
-                  }}
-                >
-                  <span style={{ fontSize: 10, color: T.accent, fontWeight: 900, fontFamily: "monospace" }}>
-                    {item.time}
-                  </span>
-                  <span style={{ fontSize: 12, color: T.txt0, lineHeight: 1.4 }}>
-                    {lang === "bn" ? item.textBn : item.textEn}
-                  </span>
+              {transcript.length === 0 ? (
+                <div style={{ fontSize: 12, color: T.txt2, padding: "8px 4px", lineHeight: 1.5 }}>
+                  {lang === "bn"
+                    ? "এই ভিডিওর জন্য ট্রান্সক্রিপ্ট এখনো প্রস্তুত হয়নি।"
+                    : "Transcript is not available for this video yet."}
                 </div>
-              ))}
+              ) : (
+                transcript.map((chunk) => {
+                  const start = chunk.start_time ?? 0;
+                  const end = chunk.end_time ?? start + 30;
+                  const isActive = currentTime >= start && currentTime < end;
+                  return (
+                    <div
+                      key={chunk.id}
+                      onClick={() => seekToSeconds(start)}
+                      style={{
+                        display: "flex",
+                        gap: 12,
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        cursor: "pointer",
+                        background: isActive ? T.accentDim : "transparent",
+                        border: isActive ? `1px solid ${T.accent}33` : `1px solid ${T.border}33`,
+                        transition: "background 0.1s"
+                      }}
+                    >
+                      <span style={{ fontSize: 10, color: T.accent, fontWeight: 900, fontFamily: "monospace", flexShrink: 0 }}>
+                        {formatSeconds(start)}
+                      </span>
+                      <span style={{ fontSize: 12, color: T.txt0, lineHeight: 1.4 }}>
+                        {chunk.chunk_text}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           )}
 
@@ -538,25 +624,34 @@ export default function GuidedVideoScreen({
                           maxWidth: "80%"
                         }}
                       >
-                        {chat.text}
-                        {chat.timestamp && (
-                          <button
-                            onClick={() => handleSeek(chat.timestamp!)}
-                            style={{
-                              display: "block",
-                              marginTop: 4,
-                              background: T.amberDim,
-                              border: `1px solid ${T.amber}40`,
-                              color: T.amber,
-                              borderRadius: 4,
-                              padding: "1px 6px",
-                              fontSize: 9.5,
-                              cursor: "pointer"
-                            }}
-                          >
-                            ⏱ Jump {chat.timestamp}
-                          </button>
-                        )}
+                        {isUser
+                          ? chat.text
+                          : parseAnswerSegments(chat.text).map((seg, sIdx) =>
+                              seg.type === "text" ? (
+                                <span key={sIdx}>{seg.value}</span>
+                              ) : (
+                                <button
+                                  key={sIdx}
+                                  onClick={() => seekToSeconds(seg.seconds)}
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    margin: "0 2px",
+                                    background: T.amberDim,
+                                    border: `1px solid ${T.amber}40`,
+                                    color: T.amber,
+                                    borderRadius: 4,
+                                    padding: "0 5px",
+                                    fontSize: 10,
+                                    fontWeight: 700,
+                                    fontFamily: "monospace",
+                                    cursor: "pointer"
+                                  }}
+                                >
+                                  ⏱ {seg.value}
+                                </button>
+                              )
+                            )}
                       </div>
                     </div>
                   );
@@ -566,8 +661,17 @@ export default function GuidedVideoScreen({
                 <input
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleLocalChat()}
-                  placeholder={lang === "bn" ? "ভিডিওর যেকোনো রেফারেন্সে প্রশ্ন করুন..." : "Inquire about this specific segment..."}
+                  onKeyDown={(e) => e.key === "Enter" && void handleChat()}
+                  disabled={chatLoading}
+                  placeholder={
+                    chatLoading
+                      ? lang === "bn"
+                        ? "ভাবছি..."
+                        : "Thinking..."
+                      : lang === "bn"
+                        ? "ভিডিওর যেকোনো রেফারেন্সে প্রশ্ন করুন..."
+                        : "Ask anything about this video..."
+                  }
                   style={{
                     flex: 1,
                     background: T.bg2,
@@ -580,14 +684,16 @@ export default function GuidedVideoScreen({
                   }}
                 />
                 <button
-                  onClick={handleLocalChat}
+                  onClick={() => void handleChat()}
+                  disabled={chatLoading}
                   style={{
                     background: T.accent,
                     border: "none",
                     borderRadius: 8,
                     width: 32,
                     height: 32,
-                    cursor: "pointer",
+                    cursor: chatLoading ? "default" : "pointer",
+                    opacity: chatLoading ? 0.6 : 1,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -595,7 +701,7 @@ export default function GuidedVideoScreen({
                     fontWeight: 700
                   }}
                 >
-                  ↑
+                  {chatLoading ? "…" : "↑"}
                 </button>
               </div>
             </div>

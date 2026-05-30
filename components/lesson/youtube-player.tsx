@@ -54,6 +54,7 @@ function loadYouTubeApi(): Promise<void> {
 export type YouTubePlayerHandle = {
   seekTo: (seconds: number) => void;
   getCurrentTime: () => number;
+  getDuration: () => number;
   play: () => void;
   pause: () => void;
 };
@@ -73,6 +74,7 @@ export function YouTubePlayer({ videoId, onReady, className }: Props) {
     return {
       seekTo: (s) => p?.seekTo(s, true),
       getCurrentTime: () => p?.getCurrentTime() ?? 0,
+      getDuration: () => p?.getDuration() ?? 0,
       play: () => p?.playVideo(),
       pause: () => p?.pauseVideo()
     };
