@@ -38,6 +38,26 @@ export async function fetchDocBySlug(slug: string) {
         ...content // DB content overrides seed where present
       };
     }
+
+    // Normalize Technology Stack section to markdown bullet list for better rendering
+    try {
+      const sections = data.content?.sections || [];
+      const tsIndex = sections.findIndex((s: any) => (s.title || '').toLowerCase().includes('technology stack'));
+      if (tsIndex !== -1) {
+        const stackList = [
+          '- Frontend: Vite React, shadcn/ui, Tailwind',
+          '- Root App: Next.js 14 (Backend + Auth)',
+          '- Frontend SPA: Vite React (submodule)',
+          '- Database: Supabase PostgreSQL (+ pgvector)',
+          '- Agents: MCP agents (Curriculum, Tutor, Assessment)',
+          '- Embeddings: OpenAI / local BYOA options',
+          '- Infrastructure: Vercel (deploy), Supabase (DB/Auth/Storage)'
+        ].join('\n');
+        data.content.sections[tsIndex].body = stackList;
+      }
+    } catch (e) {
+      // ignore normalization errors
+    }
   }
   return data as DocRecord | null;
 }

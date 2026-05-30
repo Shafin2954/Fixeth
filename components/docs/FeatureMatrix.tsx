@@ -8,15 +8,22 @@ export default function FeatureMatrix({ slug }: { slug?: string }) {
   }, []);
   return (
     <div className="space-y-2">
-      {features.map((f) => (
-        <div key={f.id} className="p-3 border rounded flex justify-between items-start">
-          <div>
-            <div className="font-semibold">{f.name}</div>
-            <div className="text-sm text-muted">{f.description}</div>
+      {features.map((f) => {
+        const pillClass = f.status === 'current'
+          ? 'bg-emerald-700 text-white'
+          : f.status === 'upcoming'
+          ? 'bg-yellow-600 text-white'
+          : 'bg-red-600 text-white';
+        return (
+          <div key={f.id} className="p-3 border rounded flex justify-between items-start bg-[#010409] border-gray-700">
+            <div>
+              <div className="font-semibold text-white">{f.name}</div>
+              <div className="text-sm text-gray-400">{f.description}</div>
+            </div>
+            <div className={`text-sm px-2 py-1 rounded ${pillClass}`}>{f.status}</div>
           </div>
-          <div className="text-sm px-2 py-1 rounded" style={{ background: f.status === 'current' ? '#DCFCE7' : f.status === 'upcoming' ? '#FEF3C7' : '#FEE2E2' }}>{f.status}</div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

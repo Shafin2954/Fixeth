@@ -37,15 +37,17 @@ export default function DocsViewer({ doc }: { doc: any }) {
           {slides.map((s: any, i: number) => (
             <div key={i} className="p-6 border border-gray-800 rounded-lg bg-[#010409]">
               <h3 className="text-xl font-semibold text-white">{s.title}</h3>
-              <p className="mt-2 text-sm text-gray-300">{s.body}</p>
-            </div>
-          ))}
+                <hr className="my-3 border-gray-700" />
+                <p className="mt-2 text-sm text-gray-300">{s.body}</p>
+              </div>
+            ))}
         </section>
 
         {/* Sections rendered as markdown blocks */}
         {sections.map((sec: any, i: number) => (
           <section id={`section-${i}`} key={i} className="mb-6">
             <h2 className="text-2xl font-semibold text-white">{sec.title}</h2>
+            <hr className="my-3 border-gray-700" />
             <div className="prose prose-invert mt-2 text-gray-200">
               {sec.title && sec.title.toLowerCase().includes('feature matrix') ? (
                 <FeatureMatrix />
