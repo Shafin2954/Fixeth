@@ -38,6 +38,10 @@ export default function DocsEditor({ slug }: { slug: string }) {
           <h2 className="text-lg font-semibold text-white">Editing: {doc.slug}</h2>
           <a href="https://github.com/rafsan-j/Fixeth" target="_blank" rel="noreferrer" className="text-sm text-gray-400 hover:text-white">View repo</a>
         </div>
+        <div className="text-right">
+          <a href="https://github.com/rafsan-j/Fixeth/blob/main/docs/PROMPTS.md" target="_blank" rel="noreferrer" className="text-sm text-gray-300 hover:text-white mr-3">docs/PROMPTS.md</a>
+          <a href="https://github.com/rafsan-j/Fixeth/blob/main/docs/PROMPTS_REGISTRY.csv" target="_blank" rel="noreferrer" className="text-sm text-gray-300 hover:text-white">docs/PROMPTS_REGISTRY.csv</a>
+        </div>
       </div>
 
       <div className="mb-4">

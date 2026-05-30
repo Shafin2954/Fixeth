@@ -16,7 +16,7 @@
     { "title": "Product Overview", "body": "Fixeth is a Bengali-first, adaptive learning platform that uses video intelligence, RAG, and curriculum agents to create personalized learning paths. Target users: college students, early-career developers, and upskillers." },
     { "title": "Feature Matrix (live)", "body": "Feature matrix is live-synced from the features table. See /api/feature-matrix for current status." },
     { "title": "Technology Stack", "body": "Frontend: Vite React, shadcn/ui, Tailwind. Backend: Next.js 14 (API-only), Supabase (Postgres + pgvector). Agents: MCP agents (Curriculum, Tutor, Assessment)." },
-    { "title": "Data & AI Provenance", "body": "Data sources: Supabase DB, scraped public job boards, uploaded transcripts, and third-party APIs. Models: Anthropic/Claude, OpenAI/GPT, local BYOA options. Responsible AI: provenance, PII scrubbing, prompt governance. See docs/PROMPTS.md and docs/PROVENANCE.md for details." },
+    { "title": "Data & AI Provenance", "body": "Data sources: Supabase DB, scraped public job boards, uploaded transcripts, and third-party APIs. Models: Anthropic/Claude, OpenAI/GPT, local BYOA options. Responsible AI: provenance, PII scrubbing, prompt governance. See [docs/PROMPTS.md](https://github.com/rafsan-j/Fixeth/blob/main/docs/PROMPTS.md) and [docs/PROVENANCE.md](https://github.com/rafsan-j/Fixeth/blob/main/docs/PROVENANCE.md) for details." },
     { "title": "Roadmap", "body": "Short: stabilize docs editor, add PDF export. Mid: version diffs, audit logs. Long: multi-tenant docs and per-track pitch decks." },
     { "title": "Changelog", "body": "v0.1 - Seeded live docs and pitch deck. Edit via /docs/admin." }
   ],

@@ -24,6 +24,13 @@ export default async function DocsDebugPage() {
         <div>
           <h2 className="text-lg font-semibold text-white">Quick actions</h2>
           <p className="mt-2 text-sm text-gray-400">If the record shows start_ts/end_ts that prevent visibility, run the SQL to clear them or click Publish Now in /docs/admin.</p>
+          <div className="mt-2 mb-2">
+            <a href="https://github.com/rafsan-j/Fixeth/blob/main/supabase/migrations/20260530_populate_main_doc_content.sql" target="_blank" rel="noreferrer" className="text-sm text-gray-300 hover:text-white">View migration: populate_main_doc_content.sql</a>
+            <br />
+            <a href="https://github.com/rafsan-j/Fixeth/blob/main/supabase/migrations/20260531_force_publish.sql" target="_blank" rel="noreferrer" className="text-sm text-gray-300 hover:text-white">View migration: force_publish.sql</a>
+            <br />
+            <a href="https://github.com/rafsan-j/Fixeth/blob/main/supabase/migrations/20260531_update_team_members.sql" target="_blank" rel="noreferrer" className="text-sm text-gray-300 hover:text-white">View migration: update_team_members.sql</a>
+          </div>
           <pre className="mt-2 p-2 bg-gray-800 rounded text-sm">UPDATE docs SET visible_override = true, is_published = true, start_ts = NULL, end_ts = NULL, published_at = now() WHERE slug = 'main';</pre>
         </div>
       </div>
