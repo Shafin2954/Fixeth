@@ -17,7 +17,8 @@ export default function TrackLibraryPage() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    // schedule setLoading to avoid synchronous setState inside effect
+    Promise.resolve().then(() => setLoading(true));
     Promise.all([
       fetchAllTracksClient(),
       fetchUserEnrollmentsClient(authUser.id)

@@ -8,10 +8,12 @@ export async function GET(req: Request) {
   const doc = await fetchDocBySlug(slug);
   if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
   if (format === 'md') {
-    const content = doc.content || {};
-    let md = `# ${doc.title}\n\n`;
-    (content.sections || []).forEach((s: any) => {
-      md += `## ${s.title}\n\n${s.body || ''}\n\n`;
+    const content = (doc.content as Record<string, unknown> | null) || {};
+    let md = `# ${String(doc.title)}\n\n`;
+    const sections = Array.isArray(content['sections']) ? (content['sections'] as unknown[]) : [];
+    sections.forEach((s) => {
+      const sec = s as { title?: unknown; body?: unknown };
+      md += `## ${String(sec.title ?? '')}\n\n${String(sec.body ?? '')}\n\n`;
     });
     return new NextResponse(md, { headers: { 'Content-Type': 'text/markdown' } });
   }

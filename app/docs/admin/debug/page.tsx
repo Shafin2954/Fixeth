@@ -31,7 +31,7 @@ export default async function DocsDebugPage() {
             <br />
             <a href="https://github.com/rafsan-j/Fixeth/blob/main/supabase/migrations/20260531_update_team_members.sql" target="_blank" rel="noreferrer" className="text-sm text-gray-300 hover:text-white">View migration: update_team_members.sql</a>
           </div>
-          <pre className="mt-2 p-2 bg-gray-800 rounded text-sm">UPDATE docs SET visible_override = true, is_published = true, start_ts = NULL, end_ts = NULL, published_at = now() WHERE slug = 'main';</pre>
+          <pre className="mt-2 p-2 bg-gray-800 rounded text-sm">UPDATE docs SET visible_override = true, is_published = true, start_ts = NULL, end_ts = NULL, published_at = now() WHERE slug = &apos;main&apos;;</pre>
         </div>
       </div>
     </div>

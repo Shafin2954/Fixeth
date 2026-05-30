@@ -8,7 +8,7 @@ export async function GET(req: Request) {
     const doc = await fetchDocBySlug(slug);
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     return NextResponse.json({ data: doc });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    return NextResponse.json({ error: (err as Error)?.message || String(err) }, { status: 500 });
   }
 }

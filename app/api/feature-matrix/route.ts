@@ -27,7 +27,7 @@ export async function GET() {
     }
 
     return NextResponse.json({ data });
-  } catch (err: any) {
+  } catch (err) {
     // Fallback: return sample
     return NextResponse.json({ data: SEED.map((s, i) => ({ id: `sample-${i+1}`, ...s })) });
   }

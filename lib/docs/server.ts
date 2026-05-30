@@ -2,22 +2,24 @@ import { createClient } from '@/lib/supabase/server';
 import fs from 'fs';
 import path from 'path';
 
+type Json = Record<string, unknown>;
+
 export type DocRecord = {
   id: string;
   slug: string;
   title: string;
-  content: any;
+  content: Json | null;
   is_published: boolean;
   visible_override: boolean;
   start_ts: string | null;
   end_ts: string | null;
 };
 
-function loadSeedContent() {
+function loadSeedContent(): Json | null {
   try {
     const p = path.join(process.cwd(), 'docs', 'seed_main_doc.json');
     const raw = fs.readFileSync(p, 'utf8');
-    return JSON.parse(raw);
+    return JSON.parse(raw) as Json;
   } catch (e) {
     return null;
   }
@@ -30,19 +32,24 @@ export async function fetchDocBySlug(slug: string) {
   const seed = loadSeedContent();
   // If DB row exists but content is empty or missing key parts, merge with seed so viewer shows something
   if (data) {
-    const content = data.content || {};
-    const needsSeed = !content.slides || content.slides.length === 0 || !content.sections || content.sections.length === 0 || !content.team || content.team.length === 0;
+    const content = (data.content as Json) || {};
+    const slidesExist = Array.isArray(content['slides']) && (content['slides'] as unknown[]).length > 0;
+    const sectionsExist = Array.isArray(content['sections']) && (content['sections'] as unknown[]).length > 0;
+    const teamExist = Array.isArray(content['team']) && (content['team'] as unknown[]).length > 0;
+    const needsSeed = !slidesExist || !sectionsExist || !teamExist;
     if (needsSeed && seed) {
       data.content = {
         ...seed,
         ...content // DB content overrides seed where present
-      };
+      } as Json;
     }
 
     // Normalize Technology Stack section to markdown bullet list for better rendering
     try {
-      const sections = data.content?.sections || [];
-      const tsIndex = sections.findIndex((s: any) => (s.title || '').toLowerCase().includes('technology stack'));
+      const rawSections = (data.content as Json)['sections'];
+      const sectionsArr = Array.isArray(rawSections) ? (rawSections as unknown[]) : [];
+      const sectionsTyped = sectionsArr.map((s) => (s as { title?: unknown; body?: unknown }));
+      const tsIndex = sectionsTyped.findIndex((s) => String(s.title ?? '').toLowerCase().includes('technology stack'));
       if (tsIndex !== -1) {
         const stackList = [
           '- Frontend: Vite React, shadcn/ui, Tailwind',
@@ -53,9 +60,10 @@ export async function fetchDocBySlug(slug: string) {
           '- Embeddings: OpenAI / local BYOA options',
           '- Infrastructure: Vercel (deploy), Supabase (DB/Auth/Storage)'
         ].join('\n');
-        data.content.sections[tsIndex].body = stackList;
+        sectionsTyped[tsIndex].body = stackList;
+        (data.content as Json)['sections'] = sectionsTyped as unknown[];
       }
-    } catch (e) {
+    } catch (_e) {
       // ignore normalization errors
     }
   }
