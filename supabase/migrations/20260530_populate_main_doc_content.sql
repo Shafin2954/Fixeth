@@ -1,0 +1,42 @@
+-- Migration: populate main docs content with slides, sections, and team placeholders
+
+BEGIN;
+
+UPDATE docs
+SET content = '{
+  "hero": { "title": "Fixeth", "subtitle": "Live Docs & Pitch Deck" },
+  "slides": [
+    { "title": "Problem", "body": "Learners in Bangladesh lack high-quality Bengali-first, career-oriented learning pathways with localized contextualization and practical project practice." },
+    { "title": "Solution", "body": "Fixeth: an AI-powered, Bengali-first adaptive LMS combining video intelligence, graph-based concept reasoning, and personalized learning paths." },
+    { "title": "Why Now", "body": "Mass availability of LLMs, improved speech-to-text, and vector search enable RAG-driven, personalized learning experiences for non-English learners." },
+    { "title": "Product Demo", "body": "Interactive guided video workspace, quizzes, notebook, and mentor agent that uses transcript RAG to answer questions." },
+    { "title": "Market Opportunity", "body": "Large underserved Bengali-speaking learner market across universities, upskilling bootcamps, and enterprise training." },
+    { "title": "Business Model", "body": "Subscription plans for learners, enterprise licensing, and partner integrations with colleges and bootcamps." },
+    { "title": "Traction", "body": "Pilot users, curriculum partnerships, sample metrics (engagement, completion) — replace with live metrics after sync." },
+    { "title": "Competition", "body": "Generic LMS and English-first AI tutors. Fixeth differentiates by Bengali-first UX and concept-graph mastery." },
+    { "title": "Go-To-Market", "body": "Campus partnerships, localized content creators, referral programs, and enterprise pilots." },
+    { "title": "Vision", "body": "Democratize high-quality career-track learning for Bengali speakers globally." }
+  ],
+  "sections": [
+    { "title": "Product Overview", "body": "Fixeth is a Bengali-first, adaptive learning platform that uses video intelligence, RAG, and curriculum agents to create personalized learning paths. Target users: college students, early-career developers, and upskillers." },
+    { "title": "Feature Matrix (live)", "body": "Feature matrix is live-synced from the features table. See /api/feature-matrix for current status." },
+    { "title": "Technology Stack", "body": "Frontend: Vite React, shadcn/ui, Tailwind. Backend: Next.js 14 (API-only), Supabase (Postgres + pgvector). Agents: MCP agents (Curriculum, Tutor, Assessment)." },
+    { "title": "Data & AI Provenance", "body": "Data sources: Supabase DB, scraped public job boards, uploaded transcripts, and third-party APIs. Models: Anthropic/Claude, OpenAI/GPT, local BYOA options. Responsible AI: provenance, PII scrubbing, prompt governance. See docs/PROMPTS.md and docs/PROVENANCE.md for details." },
+    { "title": "Roadmap", "body": "Short: stabilize docs editor, add PDF export. Mid: version diffs, audit logs. Long: multi-tenant docs and per-track pitch decks." },
+    { "title": "Changelog", "body": "v0.1 - Seeded live docs and pitch deck. Edit via /docs/admin." }
+  ],
+  "team": [
+    { "full_name": "Team Lead", "role": "Founder & CEO", "email": "team@example.com", "avatar_url": null },
+    { "full_name": "Tech Lead", "role": "CTO", "email": "tech@example.com", "avatar_url": null }
+  ]
+}'::jsonb,
+    is_published = true,
+    visible_override = true,
+    published_at = now()
+WHERE slug = 'main';
+
+-- Insert a docs_versions snapshot for audit
+INSERT INTO docs_versions (docs_id, version_number, content, edited_by, note)
+SELECT id, 1, content, NULL, 'Seeded main docs content' FROM docs WHERE slug = 'main';
+
+COMMIT;
