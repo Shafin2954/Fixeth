@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Module, ChatMessage } from "@/types/ui";
 import { YouTubePlayer, type YouTubePlayerHandle } from "@/components/lesson/youtube-player";
 import { LessonNotes } from "@/components/lesson/lesson-notes";
@@ -9,6 +9,7 @@ import { markLessonComplete } from "@/lib/supabase/queries/progress";
 import {
   fetchTranscriptChunks,
   formatSeconds,
+  buildTimedSegments,
   type TranscriptChunk
 } from "@/lib/supabase/queries/transcript";
 import { runChat, isAiConfigured, AiNotConfiguredError, type AiPrefs } from "@/lib/ai/byoa";
@@ -108,14 +109,32 @@ export default function GuidedVideoScreen({
   const [userAssessAnswers, setUserAssessAnswers] = useState<{ [key: number]: number }>({});
   const [notesText, setNotesText] = useState(() => createLocalizedNotes(lang));
 
+  // Prefer the lesson row only when it matches the active lesson; otherwise
+  // fall back to the curriculum list so switching lessons never shows the
+  // previously loaded video while the new row is still being fetched.
   const youtubeId =
-    lessonRow?.youtube_video_id || activeLesson?.youtubeVideoId || null;
+    (lessonRow && lessonRow.id === activeLessonId
+      ? lessonRow.youtube_video_id
+      : null) ||
+    activeLesson?.youtubeVideoId ||
+    null;
+
+  // Rebuild plausible per-segment timestamps when the stored transcript lacks
+  // real timing (single chunk @ 0:00). Recomputes once the real duration loads.
+  const timedTranscript = useMemo(
+    () => buildTimedSegments(transcript, duration),
+    [transcript, duration]
+  );
 
   useEffect(() => {
     if (!activeLessonId) {
       setTranscript([]);
+      setLessonRow(null);
       return;
     }
+    // Clear the stale row immediately so the player swaps to the new video.
+    setLessonRow(null);
+    setTranscript([]);
     const supabase = createClient();
     void supabase
       .from("lessons")
@@ -127,6 +146,7 @@ export default function GuidedVideoScreen({
       });
     void fetchTranscriptChunks(activeLessonId).then(setTranscript);
     setCurrentTime(0);
+    setDuration(0);
     setCompleteMsg(null);
   }, [activeLessonId]);
 
@@ -219,7 +239,7 @@ export default function GuidedVideoScreen({
 
     setChatLoading(true);
     try {
-      const relevant = retrieveRelevantChunks(question, transcript);
+      const relevant = retrieveRelevantChunks(question, timedTranscript);
       const context = buildContext(relevant);
       const system = buildSystemPrompt(activeLessonTitle, lang, prefs.persona);
       const answer = await runChat(prefs, system, [
@@ -567,14 +587,14 @@ export default function GuidedVideoScreen({
 
           {activeTab === "Transcript" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {transcript.length === 0 ? (
+              {timedTranscript.length === 0 ? (
                 <div style={{ fontSize: 12, color: T.txt2, padding: "8px 4px", lineHeight: 1.5 }}>
                   {lang === "bn"
                     ? "এই ভিডিওর জন্য ট্রান্সক্রিপ্ট এখনো প্রস্তুত হয়নি।"
                     : "Transcript is not available for this video yet."}
                 </div>
               ) : (
-                transcript.map((chunk) => {
+                timedTranscript.map((chunk) => {
                   const start = chunk.start_time ?? 0;
                   const end = chunk.end_time ?? start + 30;
                   const isActive = currentTime >= start && currentTime < end;

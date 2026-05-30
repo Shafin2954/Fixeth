@@ -79,13 +79,31 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
   const refreshCurriculum = useCallback(async () => {
     setLoading(true);
 
-    let enrollment = await fetchActiveEnrollmentClient(authUser.id);
+    // Resolution order: the lesson currently in the URL wins; otherwise keep the
+    // track the learner was last viewing (persisted) so navigating to a
+    // tier-less route like /codespace doesn't switch tracks/tiers; finally fall
+    // back to whatever enrollment is marked active.
+    let enrollment = null as Awaited<ReturnType<typeof fetchActiveEnrollmentClient>>;
+
     if (routeLessonId) {
       const trackId = await fetchTrackIdForLessonClient(routeLessonId);
       if (trackId) {
-        const byLesson = await fetchEnrollmentForTrackClient(authUser.id, trackId);
-        if (byLesson) enrollment = byLesson;
+        enrollment = await fetchEnrollmentForTrackClient(authUser.id, trackId);
       }
+    }
+
+    if (!enrollment) {
+      const remembered =
+        typeof window !== "undefined"
+          ? window.sessionStorage.getItem("fixeth:currentTrackId")
+          : null;
+      if (remembered) {
+        enrollment = await fetchEnrollmentForTrackClient(authUser.id, remembered);
+      }
+    }
+
+    if (!enrollment) {
+      enrollment = await fetchActiveEnrollmentClient(authUser.id);
     }
 
     const completed = await fetchCompletedLessonIdsClient(authUser.id);
@@ -101,6 +119,9 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
     }
 
     setEnrollmentTrackId(enrollment.track_id);
+    if (typeof window !== "undefined") {
+      window.sessionStorage.setItem("fixeth:currentTrackId", enrollment.track_id);
+    }
     setActiveTrackTier(
       normalizeUiTier(enrollment.track?.tier ?? 1)
     );

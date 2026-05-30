@@ -17,10 +17,14 @@ export const NAV_SCREEN_IDS = [
 
 export type NavScreenId = (typeof NAV_SCREEN_IDS)[number];
 
-/** Screens allowed per UI tier (matches product spec) */
+/**
+ * Screens allowed per UI tier. The progression stays additive (each tier
+ * unlocks more), but "certs" is available at every level so achievements are
+ * never hidden, and tier 3 also surfaces the community hub.
+ */
 export const TIER_NAV_SCREENS: Record<UiTier, NavScreenId[]> = {
-  1: ["dashboard", "video", "quiz"],
-  2: ["dashboard", "video", "quiz", "submissions", "mentor"],
+  1: ["dashboard", "video", "quiz", "certs"],
+  2: ["dashboard", "video", "quiz", "submissions", "mentor", "certs"],
   3: [
     "dashboard",
     "video",
@@ -29,7 +33,9 @@ export const TIER_NAV_SCREENS: Record<UiTier, NavScreenId[]> = {
     "submissions",
     "codespace",
     "tools",
-    "mentor"
+    "mentor",
+    "community",
+    "certs"
   ]
 };
 
