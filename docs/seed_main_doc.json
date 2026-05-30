@@ -21,7 +21,9 @@
     { "title": "Changelog", "body": "v0.1 - Seeded live docs and pitch deck. Edit via /docs/admin." }
   ],
   "team": [
-    { "full_name": "Founder & CEO", "role": "Founder & CEO", "email": "team@example.com", "avatar_url": null },
-    { "full_name": "Tech Lead", "role": "CTO", "email": "tech@example.com", "avatar_url": null }
+    { "full_name": "Jawat Al Sovon", "role": "Team Lead", "email": null, "avatar_url": null },
+    { "full_name": "Shafin Ahmed", "role": "Member", "email": null, "avatar_url": null },
+    { "full_name": "Rafsan Jani", "role": "Member", "email": null, "avatar_url": null },
+    { "full_name": "S M Sadman Sakib Sayor", "role": "Member", "email": null, "avatar_url": null }
   ]
 }
