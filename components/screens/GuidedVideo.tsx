@@ -14,7 +14,6 @@ import {
 } from "@/lib/supabase/queries/transcript";
 import { runChat, isAiConfigured, AiNotConfiguredError, type AiPrefs } from "@/lib/ai/byoa";
 import {
-  retrieveRelevantChunks,
   buildContext,
   buildSystemPrompt,
   buildUserPrompt,
@@ -239,8 +238,12 @@ export default function GuidedVideoScreen({
 
     setChatLoading(true);
     try {
-      const relevant = retrieveRelevantChunks(question, timedTranscript);
-      const context = buildContext(relevant);
+      // Rebuild timed segments at call time with the live player duration so
+      // the markers are never stale, then send the FULL lesson transcript so
+      // the model can cite the exact [ts:MM:SS] marker for any moment.
+      const liveDuration = playerHandleRef.current?.getDuration?.() || duration;
+      const timed = buildTimedSegments(transcript, liveDuration);
+      const context = buildContext(timed);
       const system = buildSystemPrompt(activeLessonTitle, lang, prefs.persona);
       const answer = await runChat(prefs, system, [
         { role: "user", content: buildUserPrompt(question, context) }
@@ -255,7 +258,7 @@ export default function GuidedVideoScreen({
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatLoading, preferences, transcript, activeLessonTitle, lang]);
+  }, [chatInput, chatLoading, preferences, transcript, duration, activeLessonTitle, lang]);
 
   const handleFullscreen = () => {
     if (videoContainerRef.current) {
@@ -580,7 +583,7 @@ export default function GuidedVideoScreen({
               />
               <div style={{ height: 4 }} />
               <div style={{ fontSize: 10, color: T.txt2, textAlign: "right" }}>
-                ✦ {lang === "bn" ? "ক্লাউড সিঙ্ক্রোনাইজেশন আর্কাইভে সংরক্ষিত হয়েছে" : "Auto-saved to Cloud Sync Archive"}
+                ✦ {lang === "bn" ? "ক্লাউড সিঙ���ক্রোনাইজেশন আর্কাইভে সংরক্ষিত হয়েছে" : "Auto-saved to Cloud Sync Archive"}
               </div>
             </div>
           )}

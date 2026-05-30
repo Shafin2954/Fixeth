@@ -42,9 +42,13 @@ export function retrieveRelevantChunks(
   return top.length ? top : chunks.slice(0, k);
 }
 
+/**
+ * Render the transcript as timestamped lines using the exact [ts:MM:SS] marker
+ * format we expect the model to copy back verbatim into its answer.
+ */
 export function buildContext(chunks: TranscriptChunk[]): string {
   return chunks
-    .map((c) => `[${formatSeconds(c.start_time)}] ${c.chunk_text}`)
+    .map((c) => `[ts:${formatSeconds(c.start_time)}] ${c.chunk_text}`)
     .join("\n");
 }
 
@@ -66,26 +70,34 @@ export function buildSystemPrompt(
 
   return [
     `You are Fixeth's in-video tutor for the lesson "${lessonTitle}".`,
-    "You are given timestamped transcript excerpts from the video.",
-    "Answer the learner's question using ONLY that transcript when possible.",
-    "When you reference a moment in the video, cite it inline using the exact",
-    "format [m:ss] (for example [12:05]) so the learner can jump there.",
-    "If the transcript does not cover the question, say so briefly and give a short general answer.",
+    "You are given the lesson transcript as lines that each begin with a",
+    "timestamp marker in the exact form [ts:MM:SS].",
+    "When you reference a moment in the video, you MUST cite it by copying the",
+    "EXACT [ts:MM:SS] marker from the transcript line you are drawing from —",
+    "never invent or reformat a timestamp, and never write [ts:0:00] unless that",
+    "specific line is the relevant one. Place the marker right after the",
+    "sentence it supports, e.g. \"Branches let you work in isolation [ts:3:47].\"",
+    "Prefer answering from the transcript; if it does not cover the question,",
+    "say so briefly, then give a short general answer without a marker.",
     langLine,
     personaLine
   ].join(" ");
 }
 
 export function buildUserPrompt(question: string, context: string): string {
-  return `Transcript excerpts:\n${context}\n\nLearner question: ${question}`;
+  return `Lesson transcript (each line starts with its [ts:MM:SS] marker):\n${context}\n\nLearner question: ${question}\n\nAnswer, citing the exact [ts:MM:SS] marker(s) from the transcript above.`;
 }
 
 export type AnswerSegment = { type: "text"; value: string } | { type: "time"; value: string; seconds: number };
 
-/** Split an answer into text + clickable [m:ss] timestamp tokens. */
+/**
+ * Split an answer into text + clickable timestamp tokens.
+ * Accepts the canonical [ts:MM:SS] form and also tolerates a bare [MM:SS]
+ * (or [H:MM:SS]) in case the model drops the "ts:" prefix.
+ */
 export function parseAnswerSegments(answer: string): AnswerSegment[] {
   const segments: AnswerSegment[] = [];
-  const re = /\[(\d{1,2}:\d{2}(?::\d{2})?)\]/g;
+  const re = /\[(?:ts:)?(\d{1,2}:\d{2}(?::\d{2})?)\]/gi;
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(answer)) !== null) {

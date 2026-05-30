@@ -40,66 +40,68 @@ export function formatSeconds(total: number | null | undefined): string {
 }
 
 /**
- * Returns true when the stored chunks already carry meaningful per-segment
- * timing (more than one chunk with distinct, non-zero start_times).
- */
-function hasRealTiming(chunks: TranscriptChunk[]): boolean {
-  if (chunks.length <= 1) return false;
-  const starts = chunks.map((c) => c.start_time ?? 0);
-  const distinct = new Set(starts);
-  return distinct.size > 1 && Math.max(...starts) > 0;
-}
-
-/**
- * Many lessons store the full transcript as a single chunk with start_time = 0,
- * so every citation collapses to 0:00. When real per-segment timing is missing,
- * we rebuild evenly-timed virtual segments by splitting the transcript into
- * word windows and mapping each window's position onto the real video duration.
+ * Builds fine-grained, individually-timed transcript segments for citation.
  *
- * This gives Chat-with-Video and the Transcript tab plausible, clickable
- * timestamps (e.g. "git branch" near 40% of the video -> ~3:47 for a 10m clip).
+ * Each stored chunk carries a real time window [start_time, end_time] that the
+ * chunk text was spoken over (e.g. 0 -> 97.6s). A single chunk can hold many
+ * sentences, so citing the chunk's start_time alone collapses everything to one
+ * timestamp. Here we split each chunk into small word windows and distribute
+ * them proportionally across that chunk's own [start, end] range, producing
+ * accurate, clickable timestamps without needing the player duration.
+ *
+ * Falls back to the player duration (or a ~0.4s/word estimate) only when a
+ * chunk is missing a usable end_time.
  */
 export function buildTimedSegments(
   chunks: TranscriptChunk[],
-  durationSec: number,
-  wordsPerSegment = 28
+  durationSec = 0,
+  wordsPerSegment = 16
 ): TranscriptChunk[] {
-  if (hasRealTiming(chunks)) return chunks;
-
-  const full = chunks
-    .map((c) => c.chunk_text)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!full) return chunks;
-
-  // Fall back to chunk end_time (or 0) when the player duration isn't known yet.
-  const total =
-    durationSec && durationSec > 0
-      ? durationSec
-      : Math.max(0, ...chunks.map((c) => c.end_time ?? 0));
-
-  const lessonId = chunks[0]?.lesson_id ?? "lesson";
-  const words = full.split(" ");
-  const totalWords = words.length;
-
-  if (totalWords === 0 || total <= 0) return chunks;
+  if (!chunks.length) return chunks;
 
   const segments: TranscriptChunk[] = [];
-  for (let i = 0; i < totalWords; i += wordsPerSegment) {
-    const slice = words.slice(i, i + wordsPerSegment);
-    const start = (i / totalWords) * total;
-    const end = (Math.min(i + wordsPerSegment, totalWords) / totalWords) * total;
-    segments.push({
-      id: `${lessonId}-seg-${i}`,
-      lesson_id: lessonId,
-      chunk_text: slice.join(" "),
-      start_time: start,
-      end_time: end
-    });
+
+  for (let ci = 0; ci < chunks.length; ci++) {
+    const chunk = chunks[ci];
+    const text = (chunk.chunk_text || "").replace(/\s+/g, " ").trim();
+    if (!text) continue;
+
+    const words = text.split(" ");
+    const start = Math.max(0, chunk.start_time ?? 0);
+
+    // Resolve a sensible end for this chunk's window.
+    let end = chunk.end_time ?? 0;
+    if (!end || end <= start) {
+      const nextStart = chunks[ci + 1]?.start_time ?? 0;
+      if (nextStart > start) end = nextStart;
+      else if (durationSec > start) end = durationSec;
+      else end = start + words.length * 0.4; // ~150 wpm estimate
+    }
+
+    const span = Math.max(1, end - start);
+
+    // Short chunk: keep as a single segment.
+    if (words.length <= wordsPerSegment) {
+      segments.push({ ...chunk, start_time: start, end_time: end });
+      continue;
+    }
+
+    for (let i = 0; i < words.length; i += wordsPerSegment) {
+      const slice = words.slice(i, i + wordsPerSegment);
+      const segStart = start + (i / words.length) * span;
+      const segEnd =
+        start + (Math.min(i + wordsPerSegment, words.length) / words.length) * span;
+      segments.push({
+        id: `${chunk.id}-${i}`,
+        lesson_id: chunk.lesson_id,
+        chunk_text: slice.join(" "),
+        start_time: segStart,
+        end_time: segEnd
+      });
+    }
   }
-  return segments;
+
+  return segments.length ? segments : chunks;
 }
 
 /** Parse "m:ss" / "h:mm:ss" back into seconds. */
