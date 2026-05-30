@@ -109,7 +109,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       icon: Wrench,
       match: (p) => p === "/tools"
     },
-    ...(preferences.contentVisibility.showMentor && effectiveUiTier >= 2
+    // Tier visibility for these is handled by tierAllowsScreen below; here we
+    // only respect the user's content-visibility preferences.
+    ...(preferences.contentVisibility.showMentor
       ? [
           {
             id: "mentor",
@@ -120,7 +122,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           }
         ]
       : []),
-    ...(preferences.contentVisibility.showCommunity && effectiveUiTier >= 3
+    ...(preferences.contentVisibility.showCommunity
       ? [
           {
             id: "community",
@@ -131,7 +133,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           }
         ]
       : []),
-    ...(preferences.contentVisibility.showCertificates && effectiveUiTier >= 3
+    ...(preferences.contentVisibility.showCertificates
       ? [
           {
             id: "certs",

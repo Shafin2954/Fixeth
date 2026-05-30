@@ -2,129 +2,284 @@
 
 import React from "react";
 import { Module, ChatMessage } from "@/types/ui";
+import { useAppTheme } from "@/components/providers/app-theme-provider";
+import { runPython, getPyodide } from "@/lib/notebook/pyodide";
+import {
+  listNotebooks,
+  saveNotebook,
+  deleteNotebook,
+  type NotebookCell,
+  type NotebookDoc
+} from "@/lib/supabase/queries/notebooks";
 
-const createNotebookCells = (lang: string) => [
+const uid = () => Math.random().toString(36).slice(2, 10);
+
+const starterCells = (lang: string): NotebookCell[] => [
   {
-    type: "code",
-    content:
-      lang === "bn"
-        ? "import pandas as pd\nimport numpy as np\n\n# শিক্ষার্থীর তথ্য বিশ্লেষণ\ndf = pd.read_csv('data/students.csv')\ndf.head()"
-        : "import pandas as pd\nimport numpy as np\n\n# Baseline student records analysis\ndf = pd.read_csv('data/students.csv')\ndf.head()",
-    output: "   name  score  grade\n0  Alice     87      B\n1    Bob     92      A\n2  Carol     78      C"
-  },
-  {
+    id: uid(),
     type: "markdown",
     content:
       lang === "bn"
-        ? "## অনুসন্ধানমূলক বিশ্লেষণ\nআমরা ডেটার গড়, ছড়ানো মান এবং সম্ভাব্য ফাঁকা অংশগুলো দেখব।"
-        : "## Exploratory Analytics\nWe shall measure general dispersion ranges and identify potential empty slots."
+        ? "## স্বাগতম\nএটি একটি বাস্তব Python নোটবুক — ব্রাউজারেই কোড চলে (Pyodide)। নিচের সেলটি চালিয়ে দেখুন।"
+        : "## Welcome\nThis is a real Python notebook running in your browser (Pyodide). Run the cell below to try it."
   },
   {
+    id: uid(),
     type: "code",
-    content:
-      lang === "bn"
-        ? "# মান বিচ্যুতি যাচাই\ndf['score'].describe()"
-        : "# Standard deviation checks\ndf['score'].describe()",
-    output: "count    50.000000\nmean     82.340000\nstd       9.123000"
+    content: "import sys\nprint('Python', sys.version.split()[0])\n\nfor i in range(1, 4):\n    print('Line', i)"
   }
 ];
 
 export default function NotebookScreen({
   T,
-  t,
-  modules,
-  openMods,
-  setOpenMods,
-  activeLessonId,
-  setActiveLessonId,
-  onPrevious,
-  onNext,
-  aiMsgs,
-  setAiMsgs,
   lang
 }: {
   T: any;
-  t: any;
-  modules: Module[];
-  openMods: any;
-  setOpenMods: any;
-  activeLessonId: string;
-  setActiveLessonId: any;
-  onPrevious: any;
-  onNext: any;
-  aiMsgs: ChatMessage[];
-  setAiMsgs: any;
+  t?: any;
+  modules?: Module[];
+  openMods?: any;
+  setOpenMods?: any;
+  activeLessonId?: string;
+  setActiveLessonId?: any;
+  onPrevious?: any;
+  onNext?: any;
+  aiMsgs?: ChatMessage[];
+  setAiMsgs?: any;
   lang: string;
 }) {
-  const [cells, setCells] = React.useState([
-    ...createNotebookCells(lang)
-  ]);
+  const { authUser } = useAppTheme();
+  const userId = authUser?.id ?? null;
 
+  const [docs, setDocs] = React.useState<NotebookDoc[]>([]);
+  const [activeId, setActiveId] = React.useState<string | null>(null);
+  const [title, setTitle] = React.useState("Untitled notebook");
+  const [cells, setCells] = React.useState<NotebookCell[]>(starterCells(lang));
+  const [running, setRunning] = React.useState<string | null>(null);
+  const [kernelState, setKernelState] = React.useState<"idle" | "loading" | "ready">("idle");
+  const [saving, setSaving] = React.useState(false);
+  const [savedAt, setSavedAt] = React.useState<string | null>(null);
+
+  // Load the user's saved notebooks once.
   React.useEffect(() => {
-    setCells(createNotebookCells(lang));
-  }, [lang]);
-
-  const handleCellChange = (index: number, val: string) => {
-    setCells((p) => {
-      const copy = [...p];
-      copy[index].content = val;
-      return copy;
-    });
-  };
-
-  const handleRunCell = (index: number) => {
-    // Basic reactive execution simulator
-    const cell = cells[index];
-    if (cell.type === "markdown") return;
-
-    setCells((p) => {
-      const copy = [...p];
-      if (cell.content.includes("head")) {
-        copy[index].output = "   name  score  grade\n0  Alice     87      B\n1    Bob     92      A";
-      } else if (cell.content.includes("describe")) {
-        copy[index].output = "count    50.000000\nmean     82.340000";
-      } else {
-        copy[index].output = "Command executed successfully.\nKernel returned code status [0]";
+    void listNotebooks(userId).then((list) => {
+      setDocs(list);
+      if (list.length > 0) {
+        setActiveId(list[0].id);
+        setTitle(list[0].title);
+        setCells(list[0].cells?.length ? list[0].cells : starterCells(lang));
       }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  const bootKernel = React.useCallback(async () => {
+    if (kernelState === "ready") return;
+    setKernelState("loading");
+    try {
+      await getPyodide();
+      setKernelState("ready");
+    } catch {
+      setKernelState("idle");
+    }
+  }, [kernelState]);
+
+  const updateCell = (id: string, patch: Partial<NotebookCell>) =>
+    setCells((p) => p.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+
+  const runCell = async (id: string) => {
+    const cell = cells.find((c) => c.id === id);
+    if (!cell || cell.type !== "code") return;
+    setRunning(id);
+    if (kernelState !== "ready") setKernelState("loading");
+    try {
+      const res = await runPython(cell.content);
+      setKernelState("ready");
+      const parts = [res.stdout, res.result ?? "", res.stderr].filter(Boolean);
+      updateCell(id, { output: parts.join("\n").trim() || "(no output)", error: !res.ok });
+    } catch (err) {
+      updateCell(id, { output: (err as Error).message, error: true });
+    } finally {
+      setRunning(null);
+    }
+  };
+
+  const runAll = async () => {
+    for (const c of cells) {
+      if (c.type === "code") await runCell(c.id);
+    }
+  };
+
+  const addCell = (type: "code" | "markdown") =>
+    setCells((p) => [
+      ...p,
+      {
+        id: uid(),
+        type,
+        content: type === "code" ? "# New code cell" : "### Notes"
+      }
+    ]);
+
+  const removeCell = (id: string) => setCells((p) => p.filter((c) => c.id !== id));
+
+  const moveCell = (id: string, dir: -1 | 1) =>
+    setCells((p) => {
+      const i = p.findIndex((c) => c.id === id);
+      const j = i + dir;
+      if (i < 0 || j < 0 || j >= p.length) return p;
+      const copy = [...p];
+      [copy[i], copy[j]] = [copy[j], copy[i]];
       return copy;
     });
+
+  const newNotebook = () => {
+    const fresh = starterCells(lang);
+    setActiveId(null);
+    setTitle(lang === "bn" ? "নতুন নোটবুক" : "Untitled notebook");
+    setCells(fresh);
+    setSavedAt(null);
   };
+
+  const openNotebook = (doc: NotebookDoc) => {
+    setActiveId(doc.id);
+    setTitle(doc.title);
+    setCells(doc.cells?.length ? doc.cells : starterCells(lang));
+    setSavedAt(doc.updated_at ?? null);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    const doc: NotebookDoc = {
+      id: activeId ?? uid(),
+      title: title.trim() || "Untitled notebook",
+      cells
+    };
+    const saved = await saveNotebook(doc, userId);
+    setActiveId(saved.id);
+    setSavedAt(saved.updated_at ?? new Date().toISOString());
+    setDocs(await listNotebooks(userId));
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: string) => {
+    await deleteNotebook(id, userId);
+    const list = await listNotebooks(userId);
+    setDocs(list);
+    if (activeId === id) newNotebook();
+  };
+
+  const kernelBadge =
+    kernelState === "ready"
+      ? { label: lang === "bn" ? "● কার্নেল প্রস্তুত" : "● Kernel ready", color: T.accent, bg: "#00C8961a", bd: `${T.accent}33` }
+      : kernelState === "loading"
+        ? { label: lang === "bn" ? "◌ কার্নেল লোড হচ্ছে…" : "◌ Booting kernel…", color: T.amber, bg: T.amberDim, bd: `${T.amber}33` }
+        : { label: lang === "bn" ? "○ কার্নেল নিষ্ক্রিয়" : "○ Kernel idle", color: T.txt2, bg: T.bg3, bd: T.border };
 
   return (
     <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+      {/* Notebook list sidebar */}
+      <aside
+        style={{
+          width: 220,
+          flexShrink: 0,
+          background: T.bg1,
+          borderRight: `1px solid ${T.border}`,
+          display: "flex",
+          flexDirection: "column",
+          overflowY: "auto"
+        }}
+      >
+        <div style={{ padding: "12px 12px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontSize: 11, fontWeight: 900, color: T.txt1, letterSpacing: 0.4 }}>
+            {lang === "bn" ? "আমার নোটবুক" : "MY NOTEBOOKS"}
+          </span>
+          <button
+            onClick={newNotebook}
+            title={lang === "bn" ? "নতুন" : "New notebook"}
+            style={{ background: T.accent, color: "#000", border: "none", borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontWeight: 900, fontSize: 14, lineHeight: 1 }}
+          >
+            +
+          </button>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 8px 8px" }}>
+          {docs.length === 0 && (
+            <p style={{ fontSize: 10.5, color: T.txt2, padding: "4px 6px", lineHeight: 1.5 }}>
+              {lang === "bn" ? "এখনো কোনো নোটবুক সংরক্ষিত নেই।" : "No saved notebooks yet."}
+            </p>
+          )}
+          {docs.map((d) => (
+            <div
+              key={d.id}
+              onClick={() => openNotebook(d)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 6,
+                padding: "6px 8px",
+                borderRadius: 6,
+                cursor: "pointer",
+                background: d.id === activeId ? T.accentDim : "transparent",
+                border: d.id === activeId ? `1px solid ${T.accent}33` : "1px solid transparent"
+              }}
+            >
+              <span style={{ fontSize: 11.5, color: T.txt0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {d.title}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void handleDelete(d.id);
+                }}
+                style={{ background: "none", border: "none", color: T.txt2, cursor: "pointer", fontSize: 13, lineHeight: 1, flexShrink: 0 }}
+                title={lang === "bn" ? "মুছুন" : "Delete"}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      </aside>
 
-      {/* 3.2 Center core Notebook container */}
+      {/* Notebook editor */}
       <div
         style={{
           flex: 1,
           display: "flex",
           flexDirection: "column",
           background: T.bg0,
-          borderRight: `1px solid ${T.border}`,
           padding: 16,
           overflowY: "auto"
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
-          <div>
-            <h2 style={{ color: T.txt0, fontSize: 16, fontWeight: 900, margin: 0 }}>
-              {lang === "bn" ? "জুপিটার নোটবুক সেল ল্যাব" : "JupyterLite Interactive Notebook"}
-            </h2>
-            <p style={{ color: T.txt1, fontSize: 11, margin: "3px 0 0" }}>
-              In-browser Python Compiler sandbox · Local state auto-saved
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <span style={{ background: "#00C8961a", color: T.accent, border: `1px solid ${T.accent}33`, padding: "2px 6px", borderRadius: 4, fontSize: 9.5, fontWeight: 700 }}>
-              ● Kernel: Ready
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            style={{
+              color: T.txt0,
+              fontSize: 16,
+              fontWeight: 900,
+              background: "transparent",
+              border: "none",
+              borderBottom: `1px solid ${T.border}`,
+              outline: "none",
+              padding: "2px 0",
+              minWidth: 200
+            }}
+          />
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <span style={{ background: kernelBadge.bg, color: kernelBadge.color, border: `1px solid ${kernelBadge.bd}`, padding: "2px 6px", borderRadius: 4, fontSize: 9.5, fontWeight: 700 }}>
+              {kernelBadge.label}
             </span>
-            <span style={{ background: T.blueDim, color: T.blue, border: `1px solid ${T.blue}33`, padding: "2px 6px", borderRadius: 4, fontSize: 9.5, fontWeight: 700 }}>
-              v3.11-sandbox
-            </span>
+            {savedAt && (
+              <span style={{ fontSize: 9.5, color: T.txt2 }}>
+                {lang === "bn" ? "সংরক্ষিত" : "Saved"}
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Notebook controller bar */}
+        {/* Toolbar */}
         <div
           style={{
             background: T.bg1,
@@ -138,77 +293,79 @@ export default function NotebookScreen({
             overflowX: "auto"
           }}
         >
-          {["▶ Run", "+ Code Cell", "+ Markdown Cell", "⟳ Restart Kernel"].map((action) => {
-            const isRun = action.startsWith("▶");
-            return (
-              <button
-                key={action}
-                onClick={() => {
-                  if (isRun) {
-                    cells.forEach((_, idx) => handleRunCell(idx));
-                  } else if (action.includes("Code")) {
-                    setCells((p) => [...p, { type: "code", content: "# Enter Python statements here", output: "" }]);
-                  } else if (action.includes("Markdown")) {
-                    setCells((p) => [...p, { type: "markdown", content: "### New Documentation\nWrite notes here" }]);
-                  }
-                }}
-                style={{
-                  padding: "4px 10px",
-                  fontSize: 10.5,
-                  borderRadius: 6,
-                  background: isRun ? T.accent : T.bg3,
-                  border: `1px solid ${T.border}`,
-                  color: isRun ? "#000" : T.txt0,
-                  cursor: "pointer",
-                  fontWeight: 700
-                }}
-              >
-                {action}
-              </button>
-            );
-          })}
+          <button onClick={() => void runAll()} style={btn(T, true)}>
+            ▶ {lang === "bn" ? "সব চালান" : "Run all"}
+          </button>
+          <button onClick={() => addCell("code")} style={btn(T)}>
+            + {lang === "bn" ? "কোড" : "Code"}
+          </button>
+          <button onClick={() => addCell("markdown")} style={btn(T)}>
+            + Markdown
+          </button>
+          <button onClick={() => void bootKernel()} style={btn(T)}>
+            ⟳ {lang === "bn" ? "কার্নেল" : "Kernel"}
+          </button>
+          <div style={{ flex: 1 }} />
+          <button onClick={() => void handleSave()} disabled={saving} style={btn(T, true)}>
+            {saving ? (lang === "bn" ? "সংরক্ষণ…" : "Saving…") : lang === "bn" ? "সংরক্ষণ" : "Save"}
+          </button>
         </div>
 
-        {/* Cells block */}
+        {/* Cells */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {cells.map((cell, idx) => (
-            <div key={idx} style={{ display: "flex", gap: 8 }}>
-              {/* Line indicator */}
-              <div style={{ fontSize: 9.5, color: T.txt2, padding: "8px 0", width: 34, textAlign: "right", fontFamily: "monospace", flexShrink: 0 }}>
-                In [{idx + 1}]:
+            <div key={cell.id} style={{ display: "flex", gap: 8 }}>
+              <div style={{ width: 40, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, paddingTop: 6 }}>
+                <span style={{ fontSize: 9.5, color: T.txt2, fontFamily: "monospace" }}>
+                  {cell.type === "code" ? `[${idx + 1}]` : "md"}
+                </span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <button onClick={() => moveCell(cell.id, -1)} style={miniBtn(T)} title="Move up">↑</button>
+                  <button onClick={() => moveCell(cell.id, 1)} style={miniBtn(T)} title="Move down">↓</button>
+                  <button onClick={() => removeCell(cell.id)} style={miniBtn(T)} title="Delete">×</button>
+                </div>
               </div>
 
-              {/* Cell Card */}
               <div style={{ flex: 1, background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
-                {/* Code input text area */}
+                {cell.type === "code" && (
+                  <div style={{ display: "flex", justifyContent: "flex-end", padding: "4px 6px", borderBottom: `1px solid ${T.border}`, background: T.bg2 + "60" }}>
+                    <button
+                      onClick={() => void runCell(cell.id)}
+                      disabled={running === cell.id}
+                      style={{ ...btn(T, true), padding: "2px 10px", fontSize: 10 }}
+                    >
+                      {running === cell.id ? "…" : `▶ ${lang === "bn" ? "চালান" : "Run"}`}
+                    </button>
+                  </div>
+                )}
                 <textarea
                   value={cell.content}
-                  onChange={(e) => handleCellChange(idx, e.target.value)}
+                  onChange={(e) => updateCell(cell.id, { content: e.target.value })}
+                  spellCheck={false}
                   style={{
                     width: "100%",
-                    minHeight: "64px",
+                    minHeight: cell.type === "markdown" ? "48px" : "72px",
                     background: cell.type === "markdown" ? T.bg2 + "50" : T.bg2,
                     border: "none",
                     padding: "10px 12px",
                     fontFamily: cell.type === "markdown" ? "inherit" : "monospace",
-                    fontSize: 12,
+                    fontSize: 12.5,
                     color: cell.type === "markdown" ? T.txt1 : T.accent,
                     lineHeight: 1.6,
                     resize: "vertical",
-                    outline: "none"
+                    outline: "none",
+                    display: "block"
                   }}
                 />
-
-                {/* Optional Output area */}
-                {cell.output && (
+                {cell.type === "code" && cell.output !== undefined && cell.output !== "" && (
                   <div
                     style={{
                       background: T.bg1,
                       borderTop: `1px solid ${T.border}`,
                       padding: "8px 12px",
-                      fontSize: 11,
+                      fontSize: 11.5,
                       fontFamily: "monospace",
-                      color: T.txt1,
+                      color: cell.error ? T.rose || "#ff6b6b" : T.txt1,
                       lineHeight: 1.5,
                       whiteSpace: "pre-wrap"
                     }}
@@ -221,7 +378,35 @@ export default function NotebookScreen({
           ))}
         </div>
       </div>
-
     </div>
   );
+}
+
+function btn(T: any, primary = false): React.CSSProperties {
+  return {
+    padding: "4px 10px",
+    fontSize: 10.5,
+    borderRadius: 6,
+    background: primary ? T.accent : T.bg3,
+    border: `1px solid ${T.border}`,
+    color: primary ? "#000" : T.txt0,
+    cursor: "pointer",
+    fontWeight: 700,
+    whiteSpace: "nowrap"
+  };
+}
+
+function miniBtn(T: any): React.CSSProperties {
+  return {
+    background: T.bg3,
+    border: `1px solid ${T.border}`,
+    color: T.txt1,
+    borderRadius: 4,
+    width: 18,
+    height: 16,
+    fontSize: 10,
+    lineHeight: 1,
+    cursor: "pointer",
+    padding: 0
+  };
 }

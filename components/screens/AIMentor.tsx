@@ -2,6 +2,8 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { ChatMessage } from "@/types/ui";
+import { useAppTheme } from "@/components/providers/app-theme-provider";
+import { runChat, isAiConfigured, AiNotConfiguredError, type AiPrefs } from "@/lib/ai/byoa";
 
 interface Session {
   id: string;
@@ -75,8 +77,10 @@ export default function AIMentorScreen({
   aiMsgs: ChatMessage[];
   setAiMsgs: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }) {
+  const { preferences } = useAppTheme();
   const [cognitiveLevel, setCognitiveLevel] = useState<"ELI5" | "Student" | "Pro" | "Research">("Student");
   const [chatInput, setChatInput] = useState("");
+  const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // States for Right-hand Sandbox Panel
@@ -145,65 +149,75 @@ export default function AIMentorScreen({
     setActiveSessionId(newId);
   };
 
-  // Modern response generation aligned with Cognitive Levels
-  const handleSend = (overrideText?: string) => {
-    const text = overrideText || chatInput;
-    if (!text.trim()) return;
+  // Append a message to the active session.
+  const appendToSession = (msg: ChatMessage) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeSessionId ? { ...s, messages: [...s.messages, msg] } : s
+      )
+    );
+  };
+
+  const cognitiveInstruction: Record<typeof cognitiveLevel, string> = {
+    ELI5: "Explain like I'm 5 using simple, everyday analogies. Avoid jargon.",
+    Student: "Explain at an undergraduate student level with clear examples.",
+    Pro: "Answer for an experienced professional. Be precise and technical.",
+    Research: "Answer at a research level with depth, nuance and references to underlying mechanics."
+  };
+
+  // Real AI response via the learner's own key (BYOA). Falls back to a helpful
+  // message when no key is configured in Settings.
+  const handleSend = async (overrideText?: string) => {
+    const text = (overrideText || chatInput).trim();
+    if (!text || sending) return;
     if (!overrideText) setChatInput("");
 
-    // Append user message
-    const userMsg: ChatMessage = { role: "user", text };
-    
-    // Formulate localized contextual reply
-    let aiResponse = "";
-    const lower = text.toLowerCase();
+    appendToSession({ role: "user", text });
 
-    if (lower.includes("return") || lower.includes("রিটার্ন")) {
-      if (cognitiveLevel === "ELI5") {
-        aiResponse = lang === "bn"
-          ? "রিটার্ন হলো একটি ড্রপ-অফ বক্সের মতো! ফাংশন হলো একটি কুরিয়ার টিম, তারা কাজ শেষ করে পার্সেলটি বক্সের ভেতর রেখে চলে যায় যাতে আপনি সেটি পেয়ে যান।"
-          : "Think of `return` as a takeout counter! A function takes your order (parameters), cooks the meal inside, and handing it back to the counter (`return`) for you to take home.";
-      } else if (cognitiveLevel === "Pro") {
-        aiResponse = lang === "bn"
-          ? "পাইথনে `return` এক্সিকিউশন কন্ট্রোল বন্ধ করে এবং রেজাল্টিং অবজেক্ট রেফারেন্স কলারের অ্যাক্টিভ স্ট্যাক রেকের কাছে ফিরিয়ে দেয়।"
-          : "The `return` keyword terminates subroutine execution, popping local stack frames and yielding evaluated register bindings back to routing lines.";
-      } else if (cognitiveLevel === "Research") {
-        aiResponse = lang === "bn"
-          ? "রিটার্ন ট্রানজিশন স্লাইসিং সিস্টেম কার্নেল থ্রেডে ইনস্ট্রাকশন সেট রেজিস্টার রি-ডিরেক্ট করে। এটি জাস্ট-ইন-টাইম কম্পিলারে অপ্টিমাইজড মেমরি বাফার ফ্রেম খালি করতে সাহায্য করে।"
-          : "Under AST execution nodes, `return` acts as high-order control flow redirections, freeing registers inside compilation optimization passes and returning lexical referents.";
-      } else {
-        aiResponse = lang === "bn"
-          ? "রিটার্ন কিওয়ার্ডটি ফাংশনের কাজের প্রবাহ সম্পন্ন করে এবং একটি রেজাল্ট মান প্রধান এক্সিকিউশন লাইনে ব্যাক করে পাঠায়।"
-          : "The `return` statement exits a function immediately and passes back a specific value or tuple to where the function was called.";
-      }
-    } else if (lower.includes("explain") || lower.includes("বুঝাও") || lower.includes("যাচ্ছ")) {
-      aiResponse = lang === "bn"
-        ? "১.৩ মডিউল স্কোপ অনুযায়ী, লোকাল ভ্যারিয়েবলগুলো নির্দিষ্ট লোকাল ব্লকে সক্রিয় থাকে। রানটাইম কম্পাইলার ফাংশন শেষ হলে সেগুলোকে রাম মেমরি থেকে রিসাইকেল করে ফেলে।"
-        : "Regarding local scope layers: variables instantiated inside definitions occupy lexical segments isolated from globally global environments. Once execution ends, references disconnect.";
-    } else if (lower.includes("quiz") || lower.includes("প্রশ্ন") || lower.includes("questions")) {
-      aiResponse = lang === "bn"
-        ? "আপনার জন্য স্কোপ সংক্রান্ত চেক কুইজ:\n১. লোকাল ব্লকের ভেতরে থাকাকালীন আমরা গ্লোবাল অবজেক্ট মডিফাই করতে কোন কীওয়ার্ড ব্যবহার করি? (ক) global (খ) local (গ) non-lexical"
-        : "Let's review dynamic scoping: What runtime exception occurs if we reference a local variable before declaring it, but a global variable with the identical identifier exists?";
-    } else {
-      aiResponse = lang === "bn"
-        ? `আমি আপনার প্রশ্নটি নিয়ে বিশ্লেষণ করেছি। আপনি '${cognitiveLevel}' লেভেলে জানতে চেয়েছেন। এটি আপনার ক্যারিয়ার ট্র্যাকের জন্য অত্যন্ত গুরুত্বপূর্ণ বিষয়। আপনার জন্য নিচে বিস্তারিত তথ্য দেয়া হলো!`
-        : `Analyzing workspace references under the '${cognitiveLevel}' tuning filter. That is an excellent concept that links to real-world deployment. Let me break it down for you.`;
+    const prefs = preferences.ai as unknown as AiPrefs;
+    if (!isAiConfigured(prefs)) {
+      appendToSession({
+        role: "ai",
+        text:
+          lang === "bn"
+            ? "এআই মেন্টর চালু করতে সেটিংস → AI মেন্টর-এ আপনার নিজের API কী যুক্ত করুন (BYOA)।"
+            : "Add your own API key in Settings → AI Mentor (BYOA) to enable the AI Mentor."
+      });
+      return;
     }
 
-    const aiMsg: ChatMessage = { role: "ai", text: aiResponse };
+    setSending(true);
+    const system = [
+      "You are Fixeth's personal AI Mentor for an IT-placement learner.",
+      "You know the learner is currently on the Functions & Scope module.",
+      cognitiveInstruction[cognitiveLevel],
+      lang === "bn" ? "Respond in Bengali (বাংলা)." : "Respond in clear English.",
+      "Be encouraging and concrete. Use short code snippets when helpful."
+    ].join(" ");
 
-    // Update messages in active session
-    setSessions((prev) =>
-      prev.map((s) => {
-        if (s.id === activeSessionId) {
-          return {
-            ...s,
-            messages: [...s.messages, userMsg, aiMsg]
-          };
-        }
-        return s;
-      })
-    );
+    try {
+      const history = activeSession.messages.map((m) => ({
+        role: (m.role === "ai" ? "assistant" : "user") as "assistant" | "user",
+        content: m.text
+      }));
+      const answer = await runChat(prefs, system, [
+        ...history,
+        { role: "user", content: text }
+      ]);
+      appendToSession({ role: "ai", text: answer });
+    } catch (err) {
+      const msg =
+        err instanceof AiNotConfiguredError
+          ? lang === "bn"
+            ? "এআই কনফিগার করা নেই। সেটিংসে গিয়ে আপনার API কী যুক্ত করুন।"
+            : "AI is not configured. Add your API key in Settings."
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong contacting the AI.";
+      appendToSession({ role: "ai", text: msg });
+    } finally {
+      setSending(false);
+    }
   };
 
   const prompts = [
@@ -569,6 +583,7 @@ export default function AIMentorScreen({
           />
           <button
             onClick={() => handleSend()}
+            disabled={sending}
             style={{
               background: "#00b887",
               border: "none",
@@ -578,7 +593,8 @@ export default function AIMentorScreen({
               color: "#000000",
               fontSize: 16,
               fontWeight: "bold",
-              cursor: "pointer",
+              cursor: sending ? "not-allowed" : "pointer",
+              opacity: sending ? 0.6 : 1,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -586,7 +602,7 @@ export default function AIMentorScreen({
               boxShadow: "0 2px 8px rgba(0, 184, 135, 0.25)"
             }}
           >
-            ↑
+            {sending ? "…" : "↑"}
           </button>
         </div>
 

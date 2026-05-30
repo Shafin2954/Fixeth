@@ -225,7 +225,7 @@ export default function ProfileSettingsScreen({
             </h1>
             <p style={{ margin: "4px 0 0", color: T.txt1, fontSize: 12.5, maxWidth: 680 }}>
               {lang === "bn"
-                ? "আপনার আইডেন্টিটি, কোডস্পেস এডিটর, এআই মেন্টরের ব্যক্তিত্ব এবং নিরাপত্তা সেটিংস কাস্টমাইজ করুন।"
+                ? "আপনার আইডেন্টিটি, কোডস্পেস এডিটর, এআই মেন্টরের ব্যক্তিত্ব এবং নিরাপত্তা সেটিংস ��াস্টমাইজ করুন।"
                 : "Tune your identity, IDE codespace editor, AI Mentor behavior, and privacy defaults from one polished workspace."}
             </p>
           </div>
@@ -296,7 +296,7 @@ export default function ProfileSettingsScreen({
                     <option value="job">{lang === "bn" ? "রিমোট গ্লোবাল ডেভেলপার" : "Remote / Global IT Job"}</option>
                     <option value="upskill">{lang === "bn" ? "দক্ষতা বৃদ্ধি (Upskilling)" : "Professional Upskilling"}</option>
                     <option value="switch">{lang === "bn" ? "ট্র্যাক পরিবর্তন (Field Switch)" : "Pivot Engineering Field"}</option>
-                    <option value="explore">{lang === "bn" ? "সাধারণ কারিগরি জ্ঞান" : "General Tech Exploring"}</option>
+                    <option value="explore">{lang === "bn" ? "সাধারণ কারিগরি জ���ঞান" : "General Tech Exploring"}</option>
                   </select>
                 </label>
               </div>
@@ -673,9 +673,12 @@ export default function ProfileSettingsScreen({
                     onChange={(e) => setPrefsDraft((p) => ({ ...p, ai: { ...p.ai, model: e.target.value as any } }))}
                     style={{ background: T.bg2, border: `1px solid ${T.border}`, color: T.txt0, borderRadius: 10, padding: "10px", fontSize: 12, outline: "none" }}
                   >
-                    <option value="gemini-flash">Gemini 2.5 Flash (Super Fast)</option>
-                    <option value="gemini-pro">Gemini 2.5 Pro (Deep Agent)</option>
-                    <option value="gemini-1.5">Gemini 1.5 Pro (Standard)</option>
+                    <option value="gemini-2.5-flash">gemini-2.5-flash (recommended)</option>
+                    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite (lowest quota use)</option>
+                    <option value="gemini-2.5-pro">gemini-2.5-pro (deep reasoning)</option>
+                    <option value="gemini-2.0-flash">gemini-2.0-flash</option>
+                    <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+                    <option value="gemini-1.5-pro">gemini-1.5-pro</option>
                     <option value="ollama">{lang === "bn" ? "অফলাইন লোকাল Ollama" : "Offline Local Ollama"}</option>
                   </select>
                 </label>

@@ -24,6 +24,33 @@ import type { UserPreferences, UserProfile } from "@/types/ui";
 export type { UserPreferences, UserProfile };
 export type AppUserProfile = UserProfile;
 
+// Real Google Gemini model ids we expose, plus the local Ollama option.
+const VALID_AI_MODELS = [
+  "gemini-2.5-flash",
+  "gemini-2.5-pro",
+  "gemini-2.5-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro",
+  "ollama"
+] as const;
+
+// Migrate any legacy friendly ids stored before we used real model names.
+const LEGACY_AI_MODELS: Record<string, UserPreferences["ai"]["model"]> = {
+  "gemini-flash": "gemini-2.5-flash",
+  "gemini-pro": "gemini-2.5-pro",
+  "gemini-1.5": "gemini-1.5-pro"
+};
+
+function normalizeAiModel(raw: unknown): UserPreferences["ai"]["model"] {
+  const value = String(raw ?? "");
+  if (LEGACY_AI_MODELS[value]) return LEGACY_AI_MODELS[value];
+  if ((VALID_AI_MODELS as readonly string[]).includes(value)) {
+    return value as UserPreferences["ai"]["model"];
+  }
+  return "gemini-2.5-flash";
+}
+
 const DEFAULT_USER: AppUserProfile = {
   name: "Learner",
   email: "",
@@ -64,7 +91,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   },
   ai: {
     apiKey: "",
-    model: "gemini-flash",
+    model: "gemini-2.5-flash",
     ollamaUrl: "http://localhost:11434",
     ollamaModel: "gemma:2b",
     persona: "bengali",
@@ -155,9 +182,7 @@ export function normalizePreferences(raw: unknown): UserPreferences {
     },
     ai: {
       apiKey: typeof srcAi.apiKey === "string" ? srcAi.apiKey : DEFAULT_PREFERENCES.ai.apiKey,
-      model: ["gemini-flash", "gemini-pro", "gemini-1.5", "ollama"].includes(String(srcAi.model))
-        ? (srcAi.model as UserPreferences["ai"]["model"])
-        : DEFAULT_PREFERENCES.ai.model,
+      model: normalizeAiModel(srcAi.model),
       ollamaUrl:
         typeof srcAi.ollamaUrl === "string" ? srcAi.ollamaUrl : DEFAULT_PREFERENCES.ai.ollamaUrl,
       ollamaModel:
