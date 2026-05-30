@@ -108,6 +108,33 @@ export async function fetchCompletedLessonIdsClient(userId: string): Promise<str
   return (data || []).map((r) => r.lesson_id as string);
 }
 
+export type CompletedProgressRow = {
+  lesson_id: string;
+  completed_at: string;
+};
+
+export async function fetchCompletedProgressInRangeClient(
+  userId: string,
+  sinceIso: string
+): Promise<CompletedProgressRow[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("progress")
+    .select("lesson_id,completed_at")
+    .eq("user_id", userId)
+    .eq("completed", true)
+    .not("completed_at", "is", null)
+    .gte("completed_at", sinceIso)
+    .order("completed_at", { ascending: true });
+
+  if (error) {
+    console.error("[fetchCompletedProgressInRangeClient]", error.message);
+    return [];
+  }
+
+  return (data || []) as CompletedProgressRow[];
+}
+
 export async function fetchFirstLessonIdClient(trackId: string): Promise<string | null> {
   const supabase = createClient();
   const { data: modules } = await supabase

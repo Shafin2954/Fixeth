@@ -129,3 +129,30 @@ export interface DashboardStats {
   trackTitle: string;
   currentLessonId: string | null;
 }
+
+export interface DashboardDailyCompletionPoint {
+  date: string;
+  completedLessons: number;
+}
+
+export interface DashboardModuleCompletion {
+  moduleId: string;
+  moduleTitle: string;
+  totalLessons: number;
+  completedLessons: number;
+}
+
+export interface DashboardRecentActivityItem {
+  lessonId: string;
+  lessonTitle: string;
+  moduleTitle: string;
+  completedAt: string;
+}
+
+export interface DashboardAnalytics {
+  timeRangeDays: number;
+  dailyCompletions: DashboardDailyCompletionPoint[];
+  moduleCompletions: DashboardModuleCompletion[];
+  heatmapCells: { date: string; count: number }[];
+  recentActivity: DashboardRecentActivityItem[];
+}

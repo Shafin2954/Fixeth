@@ -38,7 +38,8 @@ function subscribeEvaluation(onStoreChange: () => void) {
 export default function DashboardPage() {
   const router = useRouter();
   const { T, t, lang, user, preferences, profileRow } = useAppTheme();
-  const { modules, activeLessonId, dashboardStats, loading } = useCourse();
+  const { modules, activeLessonId, dashboardStats, dashboardAnalytics, loading } =
+    useCourse();
   const evaluation = useSyncExternalStore(
     subscribeEvaluation,
     readStoredEvaluation,
@@ -62,6 +63,7 @@ export default function DashboardPage() {
       activeLessonId={activeLessonId}
       weeklyGoal={preferences.weeklyGoal}
       dashboardStats={dashboardStats}
+      dashboardAnalytics={dashboardAnalytics}
       streak={profileRow?.streak ?? dashboardStats?.streak ?? 0}
       loading={loading}
       onContinue={() => router.push(continueHref)}

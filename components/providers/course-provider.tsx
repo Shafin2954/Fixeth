@@ -9,10 +9,16 @@ import React, {
   useState
 } from "react";
 import { useParams, useRouter } from "next/navigation";
-import type { ChatMessage, DashboardStats, Module } from "@/types/ui";
+import type {
+  ChatMessage,
+  DashboardAnalytics,
+  DashboardStats,
+  Module
+} from "@/types/ui";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
 import {
   fetchActiveEnrollmentClient,
+  fetchCompletedProgressInRangeClient,
   fetchCompletedLessonIdsClient,
   fetchCurriculumForTrack
 } from "@/lib/supabase/queries/curriculum-client";
@@ -21,6 +27,29 @@ import {
   fetchTrackIdForLessonClient
 } from "@/lib/supabase/queries/enroll-client";
 import { normalizeUiTier, type UiTier } from "@/lib/tier/config";
+
+const DASHBOARD_RANGE_DAYS = 30;
+
+function formatDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function buildDateRangeKeys(days: number): string[] {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const keys: string[] = [];
+
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - offset);
+    keys.push(formatDateKey(d));
+  }
+
+  return keys;
+}
 
 type CourseContextValue = {
   modules: Module[];
@@ -39,6 +68,7 @@ type CourseContextValue = {
   activeLesson: Module["lessons"][number] | undefined;
   learnHref: string;
   dashboardStats: DashboardStats | null;
+  dashboardAnalytics: DashboardAnalytics | null;
   refreshCurriculum: () => Promise<void>;
 };
 
@@ -68,6 +98,8 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
   const [openMods, setOpenMods] = useState<Record<string, boolean>>({});
   const [completedIds, setCompletedIds] = useState<string[]>([]);
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [dashboardAnalytics, setDashboardAnalytics] =
+    useState<DashboardAnalytics | null>(null);
   const [activeTrackTier, setActiveTrackTier] = useState<UiTier>(1);
   const [aiMsgs, setAiMsgs] = useState<ChatMessage[]>([
     {
@@ -114,6 +146,7 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
       setEnrollmentTrackId(null);
       setActiveTrackTier(1);
       setDashboardStats(null);
+      setDashboardAnalytics(null);
       setLoading(false);
       return;
     }
@@ -149,6 +182,82 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
       streak: profileRow?.streak ?? 0,
       trackTitle,
       currentLessonId: enrollment.current_lesson_id ?? null
+    });
+
+    const dateKeys = buildDateRangeKeys(DASHBOARD_RANGE_DAYS);
+    const sinceDate = new Date();
+    sinceDate.setHours(0, 0, 0, 0);
+    sinceDate.setDate(sinceDate.getDate() - (DASHBOARD_RANGE_DAYS - 1));
+
+    const progressRows = await fetchCompletedProgressInRangeClient(
+      authUser.id,
+      sinceDate.toISOString()
+    );
+
+    const lessonMeta = new Map<string, { lessonTitle: string; moduleTitle: string }>();
+    curriculum.forEach((module) => {
+      module.lessons.forEach((lesson) => {
+        lessonMeta.set(lesson.id, {
+          lessonTitle: lesson.title,
+          moduleTitle: module.title
+        });
+      });
+    });
+
+    const countsByDate = new Map<string, number>(
+      dateKeys.map((date) => [date, 0])
+    );
+    progressRows.forEach((row) => {
+      const dateKey = row.completed_at.slice(0, 10);
+      if (countsByDate.has(dateKey)) {
+        countsByDate.set(dateKey, (countsByDate.get(dateKey) ?? 0) + 1);
+      }
+    });
+
+    const dailyCompletions = dateKeys.map((date) => ({
+      date,
+      completedLessons: countsByDate.get(date) ?? 0
+    }));
+
+    const completedSet = new Set(completed);
+    const moduleCompletions = curriculum.map((module) => {
+      const total = module.lessons.length;
+      const completedCount = module.lessons.filter((lesson) => completedSet.has(lesson.id)).length;
+      return {
+        moduleId: module.id,
+        moduleTitle: module.title,
+        totalLessons: total,
+        completedLessons: completedCount
+      };
+    });
+
+    const recentActivity = [...progressRows]
+      .sort(
+        (a, b) =>
+          new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime()
+      )
+      .slice(0, 6)
+      .map((row) => {
+        const meta =
+          lessonMeta.get(row.lesson_id) ??
+          ({ lessonTitle: "Lesson", moduleTitle: "Module" } as const);
+        return {
+          lessonId: row.lesson_id,
+          lessonTitle: meta.lessonTitle,
+          moduleTitle: meta.moduleTitle,
+          completedAt: row.completed_at
+        };
+      });
+
+    setDashboardAnalytics({
+      timeRangeDays: DASHBOARD_RANGE_DAYS,
+      dailyCompletions,
+      moduleCompletions,
+      heatmapCells: dailyCompletions.map((point) => ({
+        date: point.date,
+        count: point.completedLessons
+      })),
+      recentActivity
     });
 
     const defaultLesson =
@@ -253,6 +362,7 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
       activeLesson,
       learnHref,
       dashboardStats,
+      dashboardAnalytics,
       refreshCurriculum
     }),
     [
@@ -270,6 +380,7 @@ export function CourseProvider({ children }: { children: React.ReactNode }) {
       activeLesson,
       learnHref,
       dashboardStats,
+      dashboardAnalytics,
       refreshCurriculum
     ]
   );
