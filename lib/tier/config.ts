@@ -4,6 +4,7 @@ export type UiTier = 1 | 2 | 3;
 
 export const NAV_SCREEN_IDS = [
   "dashboard",
+  "jobs",
   "video",
   "notebook",
   "quiz",
@@ -23,10 +24,11 @@ export type NavScreenId = (typeof NAV_SCREEN_IDS)[number];
  * never hidden, and tier 3 also surfaces the community hub.
  */
 export const TIER_NAV_SCREENS: Record<UiTier, NavScreenId[]> = {
-  1: ["dashboard", "video", "quiz", "certs"],
-  2: ["dashboard", "video", "quiz", "submissions", "mentor", "certs"],
+  1: ["dashboard", "jobs", "video", "quiz", "certs"],
+  2: ["dashboard", "jobs", "video", "quiz", "submissions", "mentor", "certs"],
   3: [
     "dashboard",
+    "jobs",
     "video",
     "notebook",
     "quiz",

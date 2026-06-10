@@ -69,7 +69,14 @@ export const i18n: { [key: string]: Record<string, string> } = {
     profileView: "View Profile",
     profileSettings: "Account Settings",
     profilePreferences: "Preferences",
-    profileSignOut: "Sign out"
+    profileSignOut: "Sign out",
+    jobs: "Job Intelligence",
+    jobReadiness: "Job Readiness",
+    strongMatches: "Strong Matches",
+    nearReadyMatches: "Almost Ready",
+    learningGapMatches: "Learning Gaps",
+    marketInsights: "Market Insights",
+    viewJobs: "View Jobs"
   },
   bn: {
     brand: "ফিক্সেথ",
@@ -139,7 +146,14 @@ export const i18n: { [key: string]: Record<string, string> } = {
     profileView: "প্রোফাইল দেখুন",
     profileSettings: "অ্যাকাউন্ট সেটিংস",
     profilePreferences: "পছন্দসমূহ",
-    profileSignOut: "সাইন আউট"
+    profileSignOut: "সাইন আউট",
+    jobs: "জব ইন্টেলিজেন্স",
+    jobReadiness: "জব প্রস্তুতি",
+    strongMatches: "শক্তিশালী মিল",
+    nearReadyMatches: "প্রায় প্রস্তুত",
+    learningGapMatches: "স্কিল ঘাটতি",
+    marketInsights: "মার্কেট ইনসাইটস",
+    viewJobs: "জব দেখুন"
   }
 };
 

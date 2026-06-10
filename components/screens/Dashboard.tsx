@@ -18,6 +18,7 @@ import {
 import { Doughnut, Line } from "react-chartjs-2";
 import ContentTemplates from "@/components/screens/ContentTemplates";
 import type { DashboardAnalytics, DashboardStats, Module, UserEvaluation } from "@/types/ui";
+import type { JobSignal } from "@/types/ui";
 
 ChartJS.register(
   CategoryScale,
@@ -66,12 +67,34 @@ export default function DashboardScreen({
   onTrackLibrary?: () => void;
 }) {
   const [isMobile, setIsMobile] = useState(false);
+  const [jobSignals, setJobSignals] = useState<JobSignal[]>([]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    async function loadSignals() {
+      try {
+        const response = await fetch("/api/jobs?limit=5", { cache: "no-store" });
+        const json = (await response.json()) as {
+          data?: { signals?: JobSignal[] };
+        };
+        if (!active) return;
+        setJobSignals(json.data?.signals || []);
+      } catch {
+        if (!active) return;
+        setJobSignals([]);
+      }
+    }
+    void loadSignals();
+    return () => {
+      active = false;
+    };
   }, []);
 
   if (loading) {
@@ -698,6 +721,34 @@ export default function DashboardScreen({
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 13.5, fontWeight: 800, color: T.txt0, margin: 0 }}>{t.jobReadiness}</h3>
+              <Link href="/jobs" style={{ color: T.accent, fontSize: 11, fontWeight: 700, textDecoration: "none" }}>
+                {t.viewJobs}
+              </Link>
+            </div>
+            {jobSignals.length === 0 ? (
+              <div style={{ fontSize: 11.5, color: T.txt1 }}>
+                {lang === "bn" ? "লাইভ জব সিগন্যাল আসছে..." : "Live job signals are loading..."}
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                {jobSignals.map((signal) => (
+                  <div key={`${signal.skill}-${signal.source}`} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ fontSize: 11.5, color: T.txt0 }}>{signal.skill}</span>
+                    <span style={{ fontSize: 10.5, color: T.txt1 }}>
+                      {signal.mentionCount} · {signal.weekChangePct > 0 ? "+" : ""}
+                      {signal.weekChangePct}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

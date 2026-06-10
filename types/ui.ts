@@ -156,3 +156,26 @@ export interface DashboardAnalytics {
   heatmapCells: { date: string; count: number }[];
   recentActivity: DashboardRecentActivityItem[];
 }
+
+export interface JobSignal {
+  skill: string;
+  source: string;
+  mentionCount: number;
+  weekChangePct: number;
+  avgSalaryBdt: number;
+  inCurriculum: boolean;
+  status: string;
+  scrapedAt: string | null;
+}
+
+export interface JobRoleMatch {
+  role: string;
+  matchPercentage: number;
+  requiredCoverage: number;
+  proficiencyScore: number;
+  matchedSkills: string[];
+  missingRequiredSkills: string[];
+  missingPreferredSkills: string[];
+  nextStep: string | null;
+  readiness: "strong" | "near_ready" | "learning_gap";
+}

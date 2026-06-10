@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 export default function ToolsScreen({ T, t }: { T: any; t: any }) {
   const [provider, setProvider] = useState("groq");
@@ -17,6 +17,37 @@ export default function ToolsScreen({ T, t }: { T: any; t: any }) {
   const [dataSaver, setDataSaver] = useState(false);
   const [selectedMirror, setSelectedMirror] = useState("auto");
   const [resourceToast, setResourceToast] = useState<string | null>(null);
+  const [jobInsights, setJobInsights] = useState<{
+    trendingSkills: Array<{ skill: string; mentionCount: number; weekChangePct: number }>;
+    curriculumGaps: Array<{ skill: string; demandScore: number; recommendation: string }>;
+  }>({ trendingSkills: [], curriculumGaps: [] });
+
+  useEffect(() => {
+    let active = true;
+    async function loadInsights() {
+      try {
+        const res = await fetch("/api/jobs/insights", { cache: "no-store" });
+        const json = (await res.json()) as {
+          data?: {
+            trendingSkills?: Array<{ skill: string; mentionCount: number; weekChangePct: number }>;
+            curriculumGaps?: Array<{ skill: string; demandScore: number; recommendation: string }>;
+          };
+        };
+        if (!active) return;
+        setJobInsights({
+          trendingSkills: json.data?.trendingSkills || [],
+          curriculumGaps: json.data?.curriculumGaps || []
+        });
+      } catch {
+        if (!active) return;
+        setJobInsights({ trendingSkills: [], curriculumGaps: [] });
+      }
+    }
+    void loadInsights();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const triggerSpeedTest = () => {
     setBdixStatus({
@@ -394,6 +425,50 @@ export default function ToolsScreen({ T, t }: { T: any; t: any }) {
                 </div>
               );
             })}
+          </div>
+        </div>
+
+        <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 20, boxShadow: T.shadow, marginTop: 20 }}>
+          <h3 style={{ fontSize: 13.5, fontWeight: 800, color: T.txt0, margin: "0 0 8px" }}>
+            {t.marketInsights}
+          </h3>
+          <p style={{ color: T.txt1, fontSize: 11, margin: "0 0 12px" }}>
+            Live trends from `job_market_signals` with curriculum-gap recommendations.
+          </p>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+            <div style={{ background: T.bg2, borderRadius: 10, border: `1px solid ${T.border}`, padding: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: T.txt0, marginBottom: 8 }}>
+                {t.trending}
+              </div>
+              <div style={{ display: "grid", gap: 7 }}>
+                {jobInsights.trendingSkills.slice(0, 6).map((item) => (
+                  <div key={item.skill} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ fontSize: 10.5, color: T.txt0 }}>{item.skill}</span>
+                    <span style={{ fontSize: 10, color: T.txt1 }}>
+                      {item.mentionCount} • {item.weekChangePct > 0 ? "+" : ""}
+                      {item.weekChangePct}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ background: T.bg2, borderRadius: 10, border: `1px solid ${T.border}`, padding: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: T.txt0, marginBottom: 8 }}>
+                {t.learningGapMatches}
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {jobInsights.curriculumGaps.slice(0, 4).map((gap) => (
+                  <div key={gap.skill}>
+                    <div style={{ fontSize: 10.5, color: T.txt0, fontWeight: 700 }}>
+                      {gap.skill} ({gap.demandScore})
+                    </div>
+                    <div style={{ fontSize: 9.5, color: T.txt1, marginTop: 2 }}>{gap.recommendation}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
 import {
   Award,
+  Briefcase,
   Bot,
   Clapperboard,
   Code2,
@@ -101,6 +102,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       label: t.codeSpace,
       icon: Code2,
       match: (p) => p === "/codespace"
+    },
+    {
+      id: "jobs",
+      href: "/jobs",
+      label: t.jobs,
+      icon: Briefcase,
+      match: (p) => p === "/jobs"
     },
     {
       id: "tools",
