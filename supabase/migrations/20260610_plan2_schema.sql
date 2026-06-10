@@ -4,14 +4,7 @@
 -- Run in: Supabase SQL Editor (project oxfynuytsnifqqhbmpcv)
 -- ============================================================
 
--- ── 1. NRB preference columns on users ──────────────────────
-ALTER TABLE users ADD COLUMN IF NOT EXISTS nrb_mode    BOOLEAN DEFAULT FALSE;
-ALTER TABLE users ADD COLUMN IF NOT EXISTS country_code TEXT;
-
--- ── 2. NRB relevance flag on lessons ────────────────────────
-ALTER TABLE lessons ADD COLUMN IF NOT EXISTS nrb_relevant BOOLEAN DEFAULT FALSE;
-
--- ── 3. Per-lesson topic boundaries ──────────────────────────
+-- ── 1. Per-lesson topic boundaries ──────────────────────────
 -- Manually curated topic segmentation per video.
 -- Used for topic-anchored RAG retrieval and timestamp-seek accuracy.
 CREATE TABLE IF NOT EXISTS lesson_topics (
@@ -22,14 +15,12 @@ CREATE TABLE IF NOT EXISTS lesson_topics (
   start_time     NUMERIC NOT NULL,       -- seconds from video start
   end_time       NUMERIC NOT NULL,       -- seconds from video start
   concept_id     UUID REFERENCES concepts(id),
-  nrb_relevant   BOOLEAN DEFAULT FALSE,
   order_index    INT NOT NULL,
   created_at     TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_lesson_topics_lesson     ON lesson_topics(lesson_id);
 CREATE INDEX IF NOT EXISTS idx_lesson_topics_order      ON lesson_topics(lesson_id, order_index);
-CREATE INDEX IF NOT EXISTS idx_lesson_topics_nrb        ON lesson_topics(nrb_relevant) WHERE nrb_relevant = TRUE;
 CREATE INDEX IF NOT EXISTS idx_lesson_topics_time       ON lesson_topics(lesson_id, start_time, end_time);
 
 -- RLS: lesson_topics are public read, admin write
@@ -48,7 +39,7 @@ CREATE POLICY "lesson_topics_admin_delete" ON lesson_topics FOR DELETE
     EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'platform_admin')
   );
 
--- ── 4. Admin-managed AI fallback keys ───────────────────────
+-- ── 2. Admin-managed AI fallback keys ───────────────────────
 -- One row: key = 'api_keys', value = JSON with 4 slots.
 -- Server reads the active slot; client never sees the key.
 CREATE TABLE IF NOT EXISTS admin_config (
@@ -77,7 +68,7 @@ CREATE POLICY "admin_config_admin_only" ON admin_config
     EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'platform_admin')
   );
 
--- ── 5. Admin audit log ───────────────────────────────────────
+-- ── 3. Admin audit log ───────────────────────────────────────
 CREATE TABLE IF NOT EXISTS admin_audit (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   action     TEXT NOT NULL,          -- e.g. 'key_saved', 'key_activated', 'doc_updated'
@@ -95,7 +86,7 @@ CREATE POLICY "admin_audit_admin_read" ON admin_audit
   );
 -- Inserts are done via service-role in API routes, so no INSERT policy needed for anon/auth
 
--- ── 6. /docs site content ────────────────────────────────────
+-- ── 4. /docs site content ────────────────────────────────────
 -- Each row is one docs page, edited from /admin and served at /docs/[slug].
 CREATE TABLE IF NOT EXISTS docs_content (
   slug       TEXT PRIMARY KEY,        -- e.g. 'architecture', 'prompts', 'data-strategy'
@@ -130,13 +121,7 @@ CREATE POLICY "docs_content_admin_update" ON docs_content
     EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND role = 'platform_admin')
   );
 
--- ── 7. RLS policy for users.nrb_mode ────────────────────────
--- The existing users RLS allows users to update their own row.
--- nrb_mode and country_code are user-controlled fields, so no extra policy needed.
--- Verify the existing policy covers UPDATE on new columns:
--- SELECT * FROM pg_policies WHERE tablename = 'users';
-
--- ── 8. Verify lesson_topics RPC helper (optional, for easier querying) ──
+-- ── 5. Verify lesson_topics RPC helper (optional, for easier querying) ──
 -- This function returns topics for a lesson with their transcript chunks,
 -- used by the Tutor Agent for topic-anchored retrieval.
 CREATE OR REPLACE FUNCTION get_lesson_topics_with_chunks(p_lesson_id UUID)
@@ -147,7 +132,6 @@ RETURNS TABLE (
   start_time     NUMERIC,
   end_time       NUMERIC,
   order_index    INT,
-  nrb_relevant   BOOLEAN,
   chunk_id       UUID,
   chunk_text     TEXT,
   chunk_start    NUMERIC,
@@ -161,7 +145,6 @@ RETURNS TABLE (
     t.start_time,
     t.end_time,
     t.order_index,
-    t.nrb_relevant,
     c.id           AS chunk_id,
     c.chunk_text,
     c.start_time   AS chunk_start,

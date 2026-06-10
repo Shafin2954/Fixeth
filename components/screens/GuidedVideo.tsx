@@ -10,6 +10,7 @@ import {
   fetchTranscriptChunks,
   formatSeconds,
   buildTimedSegments,
+  getTopicsWithChunks,
   type TranscriptChunk
 } from "@/lib/supabase/queries/transcript";
 import { runChat, isAiConfigured, AiNotConfiguredError, type AiPrefs } from "@/lib/ai/byoa";
@@ -17,7 +18,8 @@ import {
   buildContext,
   buildSystemPrompt,
   buildUserPrompt,
-  parseAnswerSegments
+  parseAnswerSegments,
+  buildTopicContext
 } from "@/lib/ai/video-chat";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
 import { useCourse } from "@/components/providers/course-provider";
@@ -231,32 +233,73 @@ export default function GuidedVideoScreen({
         ? "চ্যাট চালু করতে সেটিংস → AI মেন্টর-এ আপনার নিজের API কী যুক্ত করুন (BYOA)।"
         : "Add your own API key in Settings → AI Mentor (BYOA) to enable chat with this video.";
 
-    if (!isAiConfigured(prefs)) {
-      setChatLog((p) => [...p, { role: "ai", text: configHint }]);
-      return;
-    }
-
-    setChatLoading(true);
+    // Determine context: topic-anchored if available, else flat timed transcript
+    let context: string;
     try {
-      // Rebuild timed segments at call time with the live player duration so
-      // the markers are never stale, then send the FULL lesson transcript so
-      // the model can cite the exact [ts:MM:SS] marker for any moment.
+      const topics = await getTopicsWithChunks(activeLessonId);
+      if (topics && topics.length > 0) {
+        context = buildTopicContext(topics);
+      } else {
+        // Fallback to flat timed transcript
+        const liveDuration = playerHandleRef.current?.getDuration?.() || duration;
+        const timed = buildTimedSegments(transcript, liveDuration);
+        context = buildContext(timed);
+      }
+    } catch (topicError) {
+      console.warn("[handleChat] Failed to fetch topics, falling back to flat transcript", topicError);
       const liveDuration = playerHandleRef.current?.getDuration?.() || duration;
       const timed = buildTimedSegments(transcript, liveDuration);
-      const context = buildContext(timed);
-      const system = buildSystemPrompt(activeLessonTitle, lang, prefs.persona);
-      const answer = await runChat(prefs, system, [
-        { role: "user", content: buildUserPrompt(question, context) }
-      ]);
-      setChatLog((p) => [...p, { role: "ai", text: answer }]);
-    } catch (err) {
-      const text =
-        err instanceof AiNotConfiguredError
-          ? configHint
-          : `⚠️ ${(err as Error).message}`;
-      setChatLog((p) => [...p, { role: "ai", text }]);
-    } finally {
-      setChatLoading(false);
+      context = buildContext(timed);
+    }
+
+    const system = buildSystemPrompt(activeLessonTitle, lang, prefs.persona);
+    const prompt = buildUserPrompt(question, context);
+
+    if (isAiConfigured(prefs)) {
+      // Existing BYOA flow
+      setChatLoading(true);
+      try {
+        const answer = await runChat(prefs, system, [
+          { role: "user", content: prompt }
+        ]);
+        setChatLog((p) => [...p, { role: "ai", text: answer }]);
+      } catch (err) {
+        const text =
+          err instanceof AiNotConfiguredError
+            ? configHint
+            : `⚠️ ${(err as Error).message}`;
+        setChatLog((p) => [...p, { role: "ai", text }]);
+      } finally {
+        setChatLoading(false);
+      }
+    } else {
+      // No BYOA key, use server-fallback via /api/chat
+      setChatLoading(true);
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            question,
+            lesson_id: activeLessonId,
+            language: lang
+          })
+        });
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Chat failed");
+        }
+        const data = await res.json();
+        if (data.error) {
+          throw new Error(data.error);
+        }
+        const answer = data.data.answer;
+        setChatLog((p) => [...p, { role: "ai", text: answer }]);
+      } catch (err) {
+        setChatLog((p) => [...p, { role: "ai", text: err instanceof Error ? err.message : "Unknown error" }]);
+      } finally {
+        setChatLoading(false);
+      }
     }
   }, [chatInput, chatLoading, preferences, transcript, duration, activeLessonTitle, lang]);
 

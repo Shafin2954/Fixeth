@@ -133,7 +133,7 @@ CREATE TABLE transcript_chunks (
   chunk_text TEXT NOT NULL,
   start_time NUMERIC,
   end_time   NUMERIC,
-  embedding  VECTOR(1536)
+  embedding  VECTOR(768)
 );
 
 CREATE INDEX ON transcript_chunks
@@ -141,7 +141,7 @@ CREATE INDEX ON transcript_chunks
 
 -- pgvector similarity search RPC
 CREATE OR REPLACE FUNCTION match_transcript_chunks(
-  query_embedding VECTOR(1536),
+  query_embedding VECTOR(768),
   target_lesson_id UUID,
   match_threshold FLOAT DEFAULT 0.75,
   match_count INT DEFAULT 5

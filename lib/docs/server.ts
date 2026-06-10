@@ -9,6 +9,7 @@ export type DocRecord = {
   slug: string;
   title: string;
   content: Json | null;
+  content_md?: string | null;
   is_published: boolean;
   visible_override: boolean;
   start_ts: string | null;
@@ -27,6 +28,27 @@ function loadSeedContent(): Json | null {
 
 export async function fetchDocBySlug(slug: string) {
   const supabase = await createClient();
+  const { data: markdownDoc, error: markdownError } = await supabase
+    .from('docs_content')
+    .select('slug, title, content_md, published, updated_at')
+    .eq('slug', slug)
+    .maybeSingle();
+
+  if (markdownError) throw markdownError;
+  if (markdownDoc) {
+    return {
+      id: markdownDoc.slug,
+      slug: markdownDoc.slug,
+      title: markdownDoc.title,
+      content: { markdown: markdownDoc.content_md ?? '' },
+      content_md: markdownDoc.content_md ?? '',
+      is_published: markdownDoc.published === true,
+      visible_override: true,
+      start_ts: null,
+      end_ts: null
+    } as DocRecord;
+  }
+
   const { data, error } = await supabase.from('docs').select('*').eq('slug', slug).limit(1).single();
   if (error) throw error;
   const seed = loadSeedContent();

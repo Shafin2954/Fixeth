@@ -52,6 +52,26 @@ export function buildContext(chunks: TranscriptChunk[]): string {
     .join("\n");
 }
 
+/**
+ * Build context grouped by topics when topic-anchored retrieval is available.
+ * Each topic is prefixed with its label and contains its chunks in order.
+ */
+export function buildTopicContext(topics: Array<{
+  topic_label: string;
+  topic_label_bn: string | null;
+  chunks: TranscriptChunk[]
+}>): string {
+  return topics
+    .map(topic => {
+      const topicHeader = topic.topic_label_bn || topic.topic_label;
+      const chunksText = topic.chunks
+        .map(c => `[ts:${formatSeconds(c.start_time)}] ${c.chunk_text}`)
+        .join("\n");
+      return `${topicHeader}\n${chunksText}`;
+    })
+    .join("\n\n");
+}
+
 export function buildSystemPrompt(
   lessonTitle: string,
   lang: string,
