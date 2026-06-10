@@ -112,6 +112,18 @@ export interface TranscriptChunk {
   embedding?: number[] // pgvector(1536)
 }
 
+// Job market signals for dashboard & matching
+export interface JobMarketSignal {
+  skill: string
+  source: string
+  mention_count: number
+  week_change_pct?: number
+  avg_salary_bdt?: number
+  in_curriculum?: boolean
+  status?: string
+  created_at?: string
+}
+
 // Enrollment
 export interface Enrollment {
   id: string

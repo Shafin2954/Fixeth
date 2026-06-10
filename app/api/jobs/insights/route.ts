@@ -1,14 +1,12 @@
-import { NextResponse } from "next/server";
-import { runJobInsightsAgent } from "@/lib/agents/job-intelligence";
+import { NextResponse } from 'next/server'
+import { getJobMarketInsights } from '@/lib/supabase/queries/jobs'
 
 export async function GET() {
   try {
-    const data = await runJobInsightsAgent();
-    return NextResponse.json({ data, error: null });
-  } catch (err) {
-    return NextResponse.json(
-      { data: null, error: (err as Error).message || "Failed to fetch job insights" },
-      { status: 500 }
-    );
+    const insights = await getJobMarketInsights()
+    return NextResponse.json({ data: insights, error: null })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch job market insights'
+    return NextResponse.json({ data: null, error: message }, { status: 500 })
   }
 }
