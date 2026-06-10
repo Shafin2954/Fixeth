@@ -107,7 +107,7 @@ Each person owns a file boundary. No stepping on each other's files.
 - `docs/PROMPTS.md` — update with v2 versioned prompts
 - `plan2.md` ✅ (this file)
 - `README.md` — rewrite as 1-pager
-- `scripts/job_scraper.py` — NEW, Playwright scraper for Bdjobs + Chakri
+- `scripts/job_scraper.py` — NEW, Playwright scraper for Bdjobs + Chakri + Indeed + We work remotely + Jobicy + Any other potential source
 - `app/api/jobs/route.ts` — NEW, returns trending skills from `job_market_signals`
 - `components/screens/Tools.tsx` — update to show job signals dashboard
 - Demo video recording (`docs/demo/`)

@@ -1,0 +1,2640 @@
+Plan version A
+I read `plan2.md`, `docs/ARCHITECTURE.md`, and `docs/PRD.md`. The current plan only covers a **lightweight job market signal dashboard**: scrape Bdjobs/Chakri, count skills, show trending skills. Your newer idea is larger and stronger: a **learner-to-job alignment engine** that tells each learner which jobs they are almost fully ready for, what percentage they match, and which missing skills block eligibility.
+
+Below is a strategic implementation plan that keeps the sprint demo achievable while designing the system to scale later.
+
+---
+
+# Fixeth Job Intelligence — Strategic Implementation Plan
+
+## 1. Product Goal
+
+Build a **Bengali-first Job Intelligence layer** inside Fixeth that connects learning progress to real labor-market demand.
+
+Learners should be able to:
+
+1. View available job posts scraped from trusted Bangladeshi job boards.
+2. See which jobs match their completed/enrolled course skills.
+3. See a percentage match for each job.
+4. Understand why a job matches or does not match.
+5. Discover missing skills and the Fixeth lessons/tracks that can close the gap.
+
+Admins/team should be able to:
+
+1. Track most demanded skills by job role.
+2. Track emerging skills week over week.
+3. Identify curriculum gaps.
+4. Prioritize new courses based on market demand.
+
+The innovation angle: **Fixeth becomes not only an LMS, but a market-aware skill-to-employment operating system for Bengali learners.**
+
+---
+
+# 2. Core Positioning
+
+Current LMS flow:
+
+```txt
+Learner → Course → Completion → Certificate
+```
+
+Fixeth upgraded flow:
+
+```txt
+Learner → Course → Verified Skills → Job Match → Missing Skill Plan → Apply Readiness
+```
+
+This makes the platform outcome-driven. The pitch becomes:
+
+> “Fixeth does not only teach. It continuously reads the job market, maps courses to real job requirements, and tells learners exactly when they are ready to apply.”
+
+---
+
+# 3. Implementation Philosophy
+
+Do **not** start with heavy AI matching. Start with deterministic structured matching, then add embeddings/LLM enrichment later.
+
+Recommended order:
+
+1. **Scrape job posts.**
+2. **Normalize job posts into structured skills.**
+3. **Map Fixeth tracks/courses/lessons to canonical skills.**
+4. **Compute learner skill profile from enrollments/completions.**
+5. **Match learner profile against job requirements.**
+6. **Show job match percentage and missing skills.**
+7. **Aggregate insights for roles and trending skills.**
+8. Later: add embeddings and AI explanations.
+
+This is scalable because your source of truth becomes a clean skill graph, not raw scraped text.
+
+---
+
+# 4. Data Model Strategy
+
+The current `job_market_signals` table in `plan2.md` is too small for your vision. It only stores aggregated skills. You need both:
+
+1. **Raw/normalized job posts** for learner-job matching.
+2. **Aggregated signals** for dashboards and insights.
+
+## 4.1 New Tables
+
+### A. `job_sources`
+
+Stores each external job board.
+
+```sql
+job_sources
+- id uuid primary key
+- name text -- bdjobs, chakri, linkedin_future, etc.
+- base_url text
+- enabled boolean
+- scrape_frequency text -- daily, weekly
+- last_scraped_at timestamptz
+- created_at timestamptz
+```
+
+---
+
+### B. `job_posts`
+
+Stores each scraped job post.
+
+```sql
+job_posts
+- id uuid primary key
+- source_id uuid references job_sources(id)
+- external_id text
+- source text -- bdjobs, chakri
+- url text unique
+- title text not null
+- company_name text
+- location text
+- employment_type text -- full_time, part_time, internship, remote, contract
+- experience_min numeric
+- experience_max numeric
+- salary_min_bdt numeric
+- salary_max_bdt numeric
+- salary_text text
+- description text
+- requirements_text text
+- responsibilities_text text
+- raw_html text nullable -- optional, maybe not for production
+- posted_at timestamptz nullable
+- deadline_at timestamptz nullable
+- scraped_at timestamptz default now()
+- status text -- active, expired, duplicate, needs_review
+- content_hash text -- for dedupe
+- created_at timestamptz
+- updated_at timestamptz
+```
+
+Why this matters:
+
+- You can show real jobs to learners.
+- You can remove expired jobs.
+- You can reprocess old jobs when your skill extractor improves.
+- You can audit where every recommendation came from.
+
+---
+
+### C. `skills`
+
+Canonical skill ontology.
+
+```sql
+skills
+- id uuid primary key
+- name text unique -- React, Python, Excel
+- name_bn text -- রিঅ্যাক্ট, পাইথন, এক্সেল
+- category text -- programming, office, data, soft_skill, language, tool
+- aliases text[] -- react.js, reactjs, js react
+- normalized_key text unique -- react, python, microsoft_excel
+- importance_default numeric default 1.0
+- created_at timestamptz
+```
+
+This is the central table. Everything connects to this.
+
+---
+
+### D. `job_post_skills`
+
+Many-to-many mapping between jobs and skills.
+
+```sql
+job_post_skills
+- id uuid primary key
+- job_post_id uuid references job_posts(id) on delete cascade
+- skill_id uuid references skills(id)
+- requirement_type text -- required, preferred, inferred
+- importance numeric -- 1.0 to 5.0
+- evidence_text text -- sentence where skill was found
+- confidence numeric -- 0 to 1
+- created_at timestamptz
+```
+
+Example:
+
+```txt
+Job: Junior Data Analyst
+Skill: SQL
+requirement_type: required
+importance: 5
+confidence: 0.95
+```
+
+---
+
+### E. `course_skills`
+
+Maps Fixeth tracks/courses/lessons to skills.
+
+Depending on existing schema, this can reference `tracks`, `modules`, and/or `lessons`.
+
+```sql
+course_skills
+- id uuid primary key
+- track_id uuid references tracks(id)
+- module_id uuid references modules(id) nullable
+- lesson_id uuid references lessons(id) nullable
+- skill_id uuid references skills(id)
+- proficiency_level text -- awareness, beginner, intermediate, job_ready
+- coverage_weight numeric -- how strongly this course teaches the skill
+- created_at timestamptz
+```
+
+This table is what allows course completion to become a job-readiness signal.
+
+---
+
+### F. `learner_skills`
+
+Computed profile of each learner.
+
+```sql
+learner_skills
+- id uuid primary key
+- user_id uuid references users(id)
+- skill_id uuid references skills(id)
+- proficiency_score numeric -- 0 to 100
+- evidence_source text -- lesson_completed, quiz_score, assessment, manual
+- evidence_ref_id uuid nullable
+- last_updated_at timestamptz
+- created_at timestamptz
+```
+
+Initial MVP can compute this from course completion only. Later you can improve it using quiz scores, assessment projects, and AI evaluation.
+
+---
+
+### G. `job_matches`
+
+Optional cached job match results.
+
+```sql
+job_matches
+- id uuid primary key
+- user_id uuid references users(id)
+- job_post_id uuid references job_posts(id)
+- match_percentage numeric
+- matched_skill_ids uuid[]
+- missing_required_skill_ids uuid[]
+- missing_preferred_skill_ids uuid[]
+- explanation text
+- computed_at timestamptz
+```
+
+For MVP, you can compute matches on request. For scale, cache them here.
+
+---
+
+### H. Keep `job_market_signals`
+
+Use this for aggregated dashboard insights.
+
+Current plan says:
+
+```sql
+job_market_signals
+- skill
+- source
+- mention_count
+- week_change_pct
+- avg_salary_bdt
+- in_curriculum
+- status
+```
+
+I recommend evolving it later into:
+
+```sql
+job_market_signals
+- id uuid primary key
+- skill_id uuid references skills(id)
+- role_cluster text
+- source text
+- period_start date
+- period_end date
+- mention_count int
+- week_change_pct numeric
+- avg_salary_bdt numeric
+- median_salary_bdt numeric
+- demand_score numeric
+- in_curriculum boolean
+- curriculum_gap_score numeric
+- status text
+- created_at timestamptz
+```
+
+---
+
+# 5. Scraping Strategy
+
+## 5.1 MVP Sources
+
+Start with:
+
+1. Bdjobs
+2. Chakri
+
+Later:
+
+3. LinkedIn public jobs, if legally/technically acceptable
+4. Company career pages
+5. RemoteOK / Wellfound for remote opportunities
+6. NGO and development-sector job boards
+
+For competition and first working version, keep it to Bdjobs + Chakri.
+
+---
+
+## 5.2 Scraper Architecture
+
+Recommended file structure:
+
+```txt
+scripts/job_scraper.py
+services/scraper/
+  __init__.py
+  sources/
+    bdjobs.py
+    chakri.py
+  extractors/
+    skills.py
+    salary.py
+    experience.py
+  normalizers/
+    title.py
+    location.py
+  db.py
+  config.py
+```
+
+For immediate sprint speed, you can start with one file:
+
+```txt
+scripts/job_scraper.py
+```
+
+But architect the code mentally as modules so it can be split later.
+
+---
+
+## 5.3 Scraper Pipeline
+
+```txt
+Fetch listing page
+  ↓
+Extract job URLs
+  ↓
+Visit job detail page
+  ↓
+Extract raw fields
+  ↓
+Normalize title/company/location/salary
+  ↓
+Extract skills from requirements text
+  ↓
+Generate content hash
+  ↓
+Upsert job_posts
+  ↓
+Upsert job_post_skills
+  ↓
+Aggregate job_market_signals
+```
+
+---
+
+## 5.4 Dedupe Strategy
+
+Use `content_hash`:
+
+```txt
+hash(title + company_name + deadline + requirements_text)
+```
+
+Also add unique index on `url`.
+
+If a post already exists:
+
+- update `scraped_at`
+- update `status = active`
+- do not duplicate skill rows
+
+---
+
+## 5.5 Ethical Scraping Rules
+
+Important for PRD/ETHICS:
+
+- Only scrape public listing pages.
+- Respect robots/rate limits where possible.
+- No applicant data.
+- No personal emails/phone numbers stored unless needed — ideally do not store them.
+- Keep source URL for transparency.
+- Add manual review for curriculum decisions.
+
+---
+
+# 6. Skill Extraction Strategy
+
+## 6.1 Start with Dictionary-Based Extraction
+
+Do not begin with LLM extraction. It adds cost, latency, and inconsistency.
+
+Create a preset skill dictionary:
+
+```ts
+const skills = [
+  { name: "Python", aliases: ["python", "py"] },
+  { name: "React", aliases: ["react", "react.js", "reactjs"] },
+  { name: "SQL", aliases: ["sql", "mysql", "postgresql", "postgres"] },
+  { name: "Excel", aliases: ["excel", "microsoft excel", "ms excel"] },
+  { name: "Git", aliases: ["git", "github", "version control"] },
+]
+```
+
+For each job post:
+
+1. Lowercase text.
+2. Match aliases using word boundaries.
+3. Save evidence sentence.
+4. Mark confidence as high for exact alias matches.
+
+This is simple, explainable, and demo-safe.
+
+---
+
+## 6.2 Skill Importance Scoring
+
+Not all skill mentions are equal.
+
+Use rules:
+
+| Evidence | Requirement Type | Importance |
+|---|---|---:|
+| “Must have Python” | required | 5 |
+| “Required: SQL” | required | 5 |
+| “Experience with React” | required | 4 |
+| “Good to have Docker” | preferred | 2 |
+| Mentioned only in responsibilities | inferred | 1 |
+
+This lets your matching avoid shallow keyword overlap.
+
+---
+
+## 6.3 Later: LLM-Assisted Extraction
+
+After MVP, add a `Job Intelligence Agent` in `lib/agents/job-intelligence.ts`.
+
+It can take raw job description and return:
+
+```json
+{
+  "role": "Junior Data Analyst",
+  "required_skills": ["Excel", "SQL", "Power BI"],
+  "preferred_skills": ["Python"],
+  "experience_level": "entry",
+  "salary_range": [30000, 60000],
+  "confidence": 0.88
+}
+```
+
+But LLM output should enrich, not replace, deterministic extraction.
+
+---
+
+# 7. Learner Skill Profile Strategy
+
+## 7.1 MVP Learner Skill Calculation
+
+When a learner completes a lesson/course:
+
+```txt
+Completed lesson
+  ↓
+Find course_skills linked to lesson/module/track
+  ↓
+Increase learner_skills.proficiency_score
+  ↓
+Use this profile for job matching
+```
+
+Example scoring:
+
+| Completion Evidence | Score |
+|---|---:|
+| Enrolled but not completed | 20 |
+| Lesson completed | 50 |
+| Module completed | 65 |
+| Track completed | 80 |
+| Quiz score > 80% | +10 |
+| Project passed | +10 |
+
+For your phrase “not partially, rather almost fully aligned”, define job eligibility threshold like this:
+
+```txt
+Strong Match:     >= 80%
+Good Match:       65–79%
+Learning Gap:     40–64%
+Not Ready:        < 40%
+```
+
+In the learner-facing UI, show mostly Strong/Good matches. Do not flood them with low-relevance jobs.
+
+---
+
+## 7.2 Required vs Preferred Skill Logic
+
+A job match should heavily penalize missing required skills.
+
+Formula:
+
+```txt
+required_score = matched_required_weight / total_required_weight
+preferred_score = matched_preferred_weight / total_preferred_weight
+final_match = required_score * 0.75 + preferred_score * 0.25
+```
+
+Then apply blockers:
+
+```txt
+If required_score < 0.70:
+  do not show as “Apply-ready”
+```
+
+This satisfies your “almost fully aligned” requirement.
+
+---
+
+# 8. Job Matching Algorithm
+
+## 8.1 MVP Algorithm
+
+For a user and a job post:
+
+```txt
+User skills:
+Python: 80
+SQL: 70
+Excel: 90
+
+Job required skills:
+Python importance 5
+SQL importance 5
+Excel importance 3
+
+Calculate weighted overlap.
+```
+
+Pseudo-code:
+
+```ts
+function calculateJobMatch(userSkills, jobSkills) {
+  const required = jobSkills.filter(s => s.requirementType === "required")
+  const preferred = jobSkills.filter(s => s.requirementType === "preferred")
+
+  const requiredScore = weightedSkillScore(userSkills, required)
+  const preferredScore = preferred.length
+    ? weightedSkillScore(userSkills, preferred)
+    : 1
+
+  const finalScore = requiredScore * 0.75 + preferredScore * 0.25
+
+  return {
+    matchPercentage: Math.round(finalScore * 100),
+    matchedSkills,
+    missingRequiredSkills,
+    missingPreferredSkills,
+    applyReady: finalScore >= 0.8 && requiredScore >= 0.7,
+  }
+}
+```
+
+---
+
+## 8.2 Match Explanation
+
+Each job card should explain the score:
+
+```txt
+82% match
+You match: Python, SQL, Excel
+Missing: Power BI
+Why: Your completed Data Science track covers 4 of 5 required skills.
+Next step: Complete “Power BI Basics” to reach 94% match.
+```
+
+This is much more useful than just a number.
+
+---
+
+# 9. Role-Based Insights
+
+Besides individual jobs, create job role clusters:
+
+- Junior Frontend Developer
+- Backend Developer
+- Data Analyst
+- Digital Marketing Executive
+- Office Executive
+- Customer Support / VA
+- AI Content Assistant
+- WordPress Developer
+- QA Tester
+- Graphic Designer
+
+You can infer role cluster from title using keyword rules.
+
+Example:
+
+```txt
+title includes "data analyst", "business analyst" → Data Analyst
+title includes "frontend", "react", "web developer" → Frontend Developer
+title includes "executive", "excel", "office" → Office Executive
+```
+
+For each role, show:
+
+```txt
+Most demanded skills for Data Analyst this week:
+1. Excel — 82 mentions
+2. SQL — 61 mentions
+3. Power BI — 44 mentions
+4. Python — 39 mentions
+5. Communication — 34 mentions
+```
+
+This creates very strong dashboard/demo value.
+
+---
+
+# 10. API Design
+
+Follow project convention: API routes validate with Zod and return `{ data, error }`.
+
+## 10.1 `GET /api/jobs`
+
+Purpose: list jobs with filters.
+
+Query params:
+
+```txt
+?role=data_analyst&location=dhaka&min_match=80&user_id=current
+```
+
+Response:
+
+```ts
+{
+  data: {
+    jobs: [
+      {
+        id: string,
+        title: string,
+        company_name: string,
+        location: string,
+        salary_range: string,
+        source: string,
+        url: string,
+        match_percentage?: number,
+        matched_skills?: string[],
+        missing_skills?: string[],
+        apply_ready?: boolean
+      }
+    ]
+  },
+  error: null
+}
+```
+
+---
+
+## 10.2 `GET /api/jobs/matches`
+
+Purpose: personalized matches for logged-in learner.
+
+```ts
+{
+  data: {
+    strong_matches: JobMatch[],
+    good_matches: JobMatch[],
+    learning_gap_jobs: JobMatch[]
+  },
+  error: null
+}
+```
+
+---
+
+## 10.3 `GET /api/jobs/insights`
+
+Purpose: market analytics.
+
+```ts
+{
+  data: {
+    trending_skills: [...],
+    role_insights: [...],
+    curriculum_gaps: [...],
+    salary_by_role: [...]
+  },
+  error: null
+}
+```
+
+---
+
+## 10.4 `POST /api/jobs/recompute-matches`
+
+Admin or background route.
+
+Purpose: recompute cached matches after scraping or course completion.
+
+---
+
+# 11. Supabase Query Layer
+
+Per AGENTS.md, do not put DB logic inline in routes.
+
+Create:
+
+```txt
+lib/supabase/queries/jobs.ts
+lib/supabase/queries/skills.ts
+lib/supabase/queries/job-matches.ts
+```
+
+Possible functions:
+
+```ts
+getActiveJobPosts(filters)
+getJobPostWithSkills(jobId)
+getTrendingSkills(period)
+getRoleSkillInsights(role)
+getLearnerSkills(userId)
+getCourseSkills(trackId)
+upsertJobPost(post)
+upsertJobPostSkills(jobId, skills)
+```
+
+Then API routes only validate input and call these functions.
+
+---
+
+# 12. Frontend UX Plan
+
+## 12.1 Dashboard Card
+
+Small card for sprint/demo:
+
+```txt
+Job Readiness
+You are ready for 6 jobs
+Best match: Junior Data Analyst — 87%
+Trending skill: SQL ↑ 24%
+[View jobs]
+```
+
+This should replace or extend the existing “Trending Skills” card from `plan2.md`.
+
+---
+
+## 12.2 Jobs Page
+
+Recommended route:
+
+```txt
+app/(app)/jobs/page.tsx
+```
+
+Sections:
+
+1. **Recommended for you**
+2. **Strong matches**
+3. **Almost there**
+4. **Trending roles**
+5. **All jobs**
+
+Job card:
+
+```txt
+Junior Data Analyst
+Company: Example Ltd
+Location: Dhaka / Remote
+Salary: ৳35k–৳60k
+Match: 84%
+Matched: Excel, SQL, Python
+Missing: Power BI
+[View Details] [Open Source Job]
+```
+
+---
+
+## 12.3 Job Detail Page
+
+Recommended route:
+
+```txt
+app/(app)/jobs/[id]/page.tsx
+```
+
+Show:
+
+- Job title/company/source
+- Match percentage
+- Required skills
+- Preferred skills
+- Matched/missing skills
+- Relevant Fixeth courses
+- External apply link
+
+Do not let users apply inside Fixeth for MVP. Send them to original source.
+
+---
+
+## 12.4 Course Completion Moment
+
+After a learner completes a course/module, show:
+
+```txt
+Congratulations! You unlocked 12 job matches.
+Top matches:
+1. Junior Data Analyst — 86%
+2. MIS Executive — 82%
+3. Reporting Assistant — 79%
+```
+
+This is exactly the experience you described.
+
+Implementation route later:
+
+- On progress update, recompute learner skills.
+- Query jobs where match >= threshold.
+- Show modal/toast/card.
+
+---
+
+# 13. Admin / Team Insights
+
+Add a Tools/Admin section:
+
+```txt
+Job Market Intelligence
+```
+
+Widgets:
+
+1. Top skills this week
+2. Fastest growing skills
+3. Role-wise skill demand
+4. Salary range by role
+5. Curriculum gaps
+6. Skills taught but low market demand
+7. Jobs available for each Fixeth track
+
+Very strong insight:
+
+```txt
+Curriculum Gap Score = market demand - Fixeth course coverage
+```
+
+Example:
+
+```txt
+Power BI: high demand, not covered enough → create module
+Docker: rising demand, partially covered → add lesson
+Excel: high demand, covered well → promote Office track
+```
+
+---
+
+# 14. Scalable Architecture
+
+## 14.1 Current Sprint Architecture
+
+```txt
+Playwright script
+  ↓
+Supabase tables: job_posts, skills, job_post_skills
+  ↓
+Next.js API routes
+  ↓
+Dashboard / Jobs / Tools UI
+```
+
+---
+
+## 14.2 Post-Launch Architecture
+
+```txt
+Scheduled scraper / Supabase Edge Function / external worker
+  ↓
+Queue scraped URLs
+  ↓
+Normalize + extract skills
+  ↓
+Store raw jobs + structured requirements
+  ↓
+Aggregate market signals
+  ↓
+Recompute learner-job matches
+  ↓
+Notify learners when new strong match appears
+```
+
+---
+
+# 15. Agent Architecture
+
+Later add a fourth agent:
+
+```txt
+lib/agents/job-intelligence.ts
+```
+
+## Job Intelligence Agent Responsibilities
+
+Input:
+
+```ts
+{
+  job_post_id?: string,
+  user_id?: string,
+  task: "extract_skills" | "explain_match" | "recommend_learning_gap" | "summarize_market"
+}
+```
+
+Outputs:
+
+1. Structured skill extraction from messy descriptions.
+2. Human-readable explanation of job match.
+3. Missing skill learning path.
+4. Weekly market insight summary.
+
+Important: Keep deterministic matching as the source of truth. Use the agent for explanation and enrichment.
+
+---
+
+# 16. Phased Delivery Plan
+
+## Phase 0 — Decide Scope for This Sprint
+
+For competition/demo, ship this minimum:
+
+1. Scrape/seed job posts.
+2. Extract skills from posts.
+3. Show trending skills.
+4. Map a few Fixeth tracks to skills.
+5. Show personalized job matches after course completion or dashboard.
+
+Avoid overbuilding.
+
+---
+
+## Phase 1 — Database Foundation
+
+Deliverables:
+
+- `skills`
+- `job_sources`
+- `job_posts`
+- `job_post_skills`
+- `course_skills`
+- optional `learner_skills`
+
+Also seed initial canonical skills:
+
+- Python
+- SQL
+- Excel
+- Git
+- GitHub
+- React
+- JavaScript
+- HTML
+- CSS
+- Tailwind
+- Power BI
+- Communication
+- English
+- Data Analysis
+- Digital Marketing
+- WordPress
+- Canva
+- Google Sheets
+
+Success criteria:
+
+- Supabase can store real job posts.
+- Every job can have structured required/preferred skills.
+- Every course/track can map to skills.
+
+---
+
+## Phase 2 — Scraper MVP
+
+Deliverables:
+
+- `scripts/job_scraper.py`
+- Bdjobs scraper
+- Chakri scraper
+- dictionary skill extraction
+- salary extraction if available
+- dedupe by URL/hash
+- upsert into Supabase
+
+Success criteria:
+
+- Running script inserts at least 20 real or seeded jobs.
+- Each job has extracted skills.
+- Failed scrape does not crash the whole run.
+
+Demo fallback:
+
+- Seed 20–30 realistic jobs manually.
+
+---
+
+## Phase 3 — Matching Engine
+
+Deliverables:
+
+```txt
+lib/jobs/matching.ts
+lib/supabase/queries/job-matches.ts
+```
+
+Functions:
+
+```ts
+calculateJobMatch(userSkills, jobSkills)
+getPersonalizedJobMatches(userId)
+getJobsUnlockedByCompletedTrack(userId, trackId)
+```
+
+Success criteria:
+
+- A learner who completes Data Science sees Data Analyst-style jobs.
+- A learner who completes Git/Web basics sees Junior Frontend or Web jobs.
+- Low-overlap jobs are hidden or marked “Learning Gap”, not shown as strong matches.
+
+---
+
+## Phase 4 — API Routes
+
+Deliverables:
+
+```txt
+app/api/jobs/route.ts
+app/api/jobs/matches/route.ts
+app/api/jobs/insights/route.ts
+```
+
+Success criteria:
+
+- All routes return `{ data, error }`.
+- Inputs validated with Zod.
+- DB queries live in `lib/supabase/queries/`.
+
+---
+
+## Phase 5 — Learner UI
+
+Deliverables:
+
+1. Dashboard job readiness card.
+2. Jobs page.
+3. Job detail page or modal.
+4. Course completion “jobs unlocked” panel.
+
+Success criteria:
+
+- Learner can understand what jobs they are ready for in under 10 seconds.
+- Each match explains matched and missing skills.
+- Apply button opens original job URL.
+
+---
+
+## Phase 6 — Insights Dashboard
+
+Deliverables:
+
+1. Trending skills table.
+2. Role-wise skill demand.
+3. Curriculum gap table.
+4. Salary insight if enough salary data exists.
+
+Success criteria:
+
+- Team can answer: “Which skill should we teach next?”
+- Demo can show: “This curriculum is driven by real market data.”
+
+---
+
+## Phase 7 — AI Enhancement
+
+Only after deterministic MVP works:
+
+1. LLM skill extraction for messy posts.
+2. Bengali explanation of match.
+3. Missing skill learning-path recommendation.
+4. Weekly “market briefing” generated for admin.
+
+---
+
+# 17. First Build Recommendation
+
+If you are starting now, build in this order:
+
+## Step 1
+
+Create a migration for:
+
+- `skills`
+- `job_sources`
+- `job_posts`
+- `job_post_skills`
+- `course_skills`
+- `learner_skills`
+
+## Step 2
+
+Seed canonical skills and map existing tracks to skills.
+
+Example:
+
+```txt
+Data Science track → Python, SQL, Excel, Data Analysis
+Git track → Git, GitHub, CLI
+Digital Literacy → Excel, Google Sheets, Email, Communication
+```
+
+## Step 3
+
+Build scraper or seed fallback jobs.
+
+For speed, seed first. Then scraper.
+
+## Step 4
+
+Build `calculateJobMatch()`.
+
+Do this before UI. The core value is the matching logic.
+
+## Step 5
+
+Build `/api/jobs/matches`.
+
+## Step 6
+
+Build a simple jobs UI.
+
+---
+
+# 18. What to Avoid Right Now
+
+Do not start with:
+
+- Full LLM extraction pipeline
+- Complicated resume parsing
+- In-platform job applications
+- Employer dashboard
+- Notifications
+- Real-time scraping
+- Payment or premium job access
+- Too many job boards
+
+These can come later. The valuable core is:
+
+```txt
+real jobs + real course skills + explainable match percentage
+```
+
+---
+
+# 19. Competition Demo Narrative
+
+Use this story:
+
+```txt
+A learner completes the Data Science intro track.
+Fixeth instantly compares their verified skills against live job posts.
+It finds Junior Data Analyst jobs with 84–91% match.
+It shows exactly which skills match: Excel, SQL, Python.
+It shows one missing skill: Power BI.
+Then Fixeth recommends the next lesson to close the gap.
+```
+
+This is a strong “digital disruptive innovation” demo because it closes the loop between education and employment.
+
+---
+
+# 20. Recommended MVP Definition
+
+For the first working version, I recommend this exact scope:
+
+## Must Have
+
+- Store job posts.
+- Extract skills.
+- Store skill requirements per job.
+- Map Fixeth courses/tracks to skills.
+- Compute learner skill profile from completions.
+- Show job match percentage.
+- Show matched/missing skills.
+- Show trending skills.
+
+## Should Have
+
+- Role-wise insights.
+- Salary range insights.
+- Course recommendations for missing skills.
+
+## Later
+
+- LLM extraction.
+- AI-written match explanation.
+- Job alerts.
+- Employer partnerships.
+- Resume/profile generation.
+- Verified skill badges.
+
+---
+
+# 21. Final Strategic Direction
+
+Your implementation should evolve from the simple `job_market_signals` idea in `plan2.md` into this platform capability:
+
+```txt
+Job Market Intelligence Layer
+= Scraped jobs
++ Skill ontology
++ Course-skill graph
++ Learner skill profile
++ Explainable job matching
++ Curriculum gap intelligence
+```
+
+That is the scalable foundation.
+
+If you want the fastest useful next step: implement the database schema and seed data first, then build the matching function. The scraper can run after that, because seeded jobs are enough to validate the product logic while scraper reliability is being improved.
+
+
+
+Plan Version B
+## Strategic Plan: Fixeth Job Market Intelligence + Course-to-Job Matching
+
+I read `plan2.md`, `docs/PRD.md`, `docs/ARCHITECTURE.md`, `docs/DATA_STRATEGY.md`, and checked the existing Supabase migration references for `tracks.skills`, `enrollments`, `progress`, `learner_mastery`, and `job_market_signals`.
+
+Your current `plan2.md` job scraper idea is a **good competition MVP**, but your expanded idea is bigger and more disruptive:
+
+> Fixeth should not only show “trending skills”; it should become a Bengali-first **learning-to-employment intelligence layer** that tells each learner: “Based on what you completed, these are the jobs you are almost ready for, here is your match %, and here are the exact remaining gaps.”
+
+That is the strategic direction I recommend.
+
+---
+
+# 1. Product Vision
+
+## Feature name
+
+**Fixeth Career Match Engine**
+
+## One-line pitch
+
+Fixeth continuously scans Bangladeshi job postings, extracts role and skill demand, maps those requirements to Fixeth courses/concepts, and shows each learner which jobs they are nearly ready for after completing a course or track.
+
+## Why this is disruptive
+
+Most LMS platforms stop at:
+
+- course completion,
+- certificate generation,
+- generic career advice.
+
+Fixeth can go further:
+
+- real job market data,
+- Bengali-first explanation,
+- skill-gap reasoning,
+- course-to-job alignment,
+- personalized employability signals.
+
+The innovation is not “job scraping” alone. The innovation is:
+
+> **A live labor-market feedback loop inside an adaptive LMS.**
+
+The market tells Fixeth what skills are rising. Fixeth tells learners what to learn. Learners complete courses. Fixeth tells them which jobs they can confidently apply to.
+
+---
+
+# 2. Strategic Scope
+
+There should be three layers, shipped incrementally.
+
+## Layer 1 — Job Market Signals
+
+This is the `plan2.md` version.
+
+Purpose:
+
+- scrape public job posts,
+- extract skill mentions,
+- aggregate trending skills,
+- show market insight dashboard.
+
+Example insight:
+
+> “React appeared in 41 frontend job posts this week, up 18% from last week.”
+
+## Layer 2 — Job Role Intelligence
+
+Instead of only aggregating by skill, group postings into normalized job roles.
+
+Examples:
+
+- Frontend Developer
+- Junior Python Developer
+- Data Analyst
+- Digital Marketing Executive
+- Office Assistant
+- AI Prompting Specialist
+- WordPress Developer
+- Customer Support Executive
+- Excel/Data Entry Operator
+
+For each role, Fixeth should know:
+
+- required skills,
+- preferred skills,
+- tools,
+- average salary,
+- experience level,
+- source count,
+- demand trend,
+- which Fixeth courses teach the needed skills.
+
+## Layer 3 — Personalized Learner-to-Job Matching
+
+After course/track completion, each learner sees:
+
+- jobs they are ready for,
+- match percentage,
+- matched skills,
+- missing skills,
+- related Fixeth lessons to close the gap,
+- confidence level,
+- apply link if source posting still exists.
+
+Example:
+
+> “You completed Git + Data Science Basics. You are a 78% match for Junior Data Analyst roles. You already match Excel, Python basics, Git, SQL basics. Missing: Power BI and dashboard reporting. Complete these 2 lessons to reach 90%+.”
+
+---
+
+# 3. Key Product Principles
+
+## 3.1 “Almost fully aligned”, not weak partial matching
+
+You specifically said:
+
+> not partially, rather almost fully aligned
+
+So the system should avoid showing low-quality matches.
+
+Recommended thresholds:
+
+| Match level | Score | UI behavior |
+|---|---:|---|
+| Strong match | 85–100% | Show as “Ready to apply” |
+| Near-ready | 70–84% | Show as “Almost ready” with gaps |
+| Learning path match | 50–69% | Show only in “Future opportunities” |
+| Weak match | <50% | Hide from learner by default |
+
+For course completion screens, only show:
+
+- **Strong match**, and
+- selected **Near-ready** jobs.
+
+This keeps learner trust high.
+
+## 3.2 Explainability over magic
+
+Every percentage must be explainable.
+
+Bad:
+
+> “You are 82% matched.”
+
+Good:
+
+> “You match 9 of 11 required skills. Required skills carry 80% of the score. Preferred skills carry 20%.”
+
+## 3.3 Market data should inform curriculum, not blindly control it
+
+The scraper should not automatically change courses. It should create signals for admin/curriculum review.
+
+Example:
+
+> “Power BI demand rose 31% across Data Analyst roles. Suggested action: add Power BI module to Data Science track.”
+
+## 3.4 Bangladesh-first taxonomy
+
+Do not only optimize for global tech roles. Bangladesh job boards contain many hybrid roles:
+
+- Executive, IT
+- MIS Officer
+- Data Entry Operator
+- Digital Marketing Executive
+- Customer Support + Excel
+- Junior Software Engineer
+- WordPress Developer
+- SEO Specialist
+- Office Assistant with MS Office
+
+These roles matter for your target learners.
+
+---
+
+# 4. Recommended Architecture
+
+Current architecture already has:
+
+- Next.js 14 App Router,
+- Supabase single DB,
+- `tracks.skills` array,
+- `job_market_signals`,
+- `learner_mastery`,
+- `progress`,
+- `enrollments`,
+- `concepts`,
+- `concept_edges`.
+
+For scalability, I recommend adding a proper career intelligence data model instead of overloading `job_market_signals`.
+
+## 4.1 Data pipeline overview
+
+```txt
+Bdjobs / Chakri / other public sources
+        ↓
+Playwright scraper
+        ↓
+Raw job post storage
+        ↓
+Skill + role extraction
+        ↓
+Canonical skill normalization
+        ↓
+Job role clustering / mapping
+        ↓
+Aggregated market signals
+        ↓
+Learner skill profile
+        ↓
+Personalized job match scoring
+        ↓
+Dashboard / course completion / Tools screen
+```
+
+---
+
+# 5. Database Strategy
+
+## 5.1 Keep `job_market_signals` for MVP insights
+
+Current planned table is useful for simple trend cards:
+
+```sql
+job_market_signals (
+  skill,
+  source,
+  mention_count,
+  week_change_pct,
+  avg_salary_bdt,
+  in_curriculum,
+  status
+)
+```
+
+Use it for:
+
+- dashboard trending skills,
+- Tools screen market table,
+- pitch/demo evidence.
+
+But for your expanded vision, add these tables later.
+
+---
+
+## 5.2 Add `job_posts`
+
+Stores normalized public job posts.
+
+Recommended fields:
+
+```sql
+job_posts (
+  id uuid primary key,
+  source text not null,                 -- bdjobs, chakri, etc.
+  source_job_id text,
+  source_url text,
+  title text not null,
+  company_name text,
+  location text,
+  employment_type text,                 -- full_time, part_time, internship, remote, contract
+  experience_min numeric,
+  experience_max numeric,
+  salary_min_bdt numeric,
+  salary_max_bdt numeric,
+  salary_text text,
+  description_text text,
+  requirements_text text,
+  posted_at timestamptz,
+  scraped_at timestamptz default now(),
+  expires_at timestamptz,
+  content_hash text unique,
+  language text default 'en',
+  status text default 'active'          -- active, expired, duplicate, review_needed
+)
+```
+
+Why this matters:
+
+- deduplication,
+- future apply links,
+- role-level matching,
+- auditability,
+- avoiding only aggregated data.
+
+Privacy note: store only public posting data. No applicant data.
+
+---
+
+## 5.3 Add `skills` canonical taxonomy
+
+You need normalized skill names because job posts may say:
+
+- JS,
+- JavaScript,
+- Javascript,
+- ES6,
+- React.js,
+- ReactJS.
+
+Canonical table:
+
+```sql
+skills (
+  id uuid primary key,
+  name text not null unique,             -- JavaScript
+  slug text not null unique,             -- javascript
+  category text,                         -- programming, database, office, soft_skill, tool
+  aliases text[],                        -- JS, Javascript, ES6
+  bn_name text,
+  description text,
+  is_teachable boolean default true,
+  created_at timestamptz default now()
+)
+```
+
+Examples:
+
+| Canonical skill | Aliases |
+|---|---|
+| JavaScript | JS, Javascript, ES6 |
+| React | ReactJS, React.js, Next.js frontend |
+| Microsoft Excel | Excel, MS Excel, Spreadsheet |
+| SQL | MySQL, PostgreSQL, database query |
+| Git | GitHub, version control |
+
+---
+
+## 5.4 Add `job_post_skills`
+
+Links each job post to extracted skills.
+
+```sql
+job_post_skills (
+  job_post_id uuid references job_posts(id),
+  skill_id uuid references skills(id),
+  evidence_text text,
+  requirement_type text,                -- required, preferred, mentioned
+  confidence numeric,                   -- 0 to 1
+  extraction_method text,               -- keyword, llm, manual
+  primary key (job_post_id, skill_id)
+)
+```
+
+This is critical for explainable matching.
+
+---
+
+## 5.5 Add `job_roles`
+
+Normalized roles.
+
+```sql
+job_roles (
+  id uuid primary key,
+  slug text unique not null,
+  title text not null,                  -- Frontend Developer
+  title_bn text,
+  family text,                          -- software, data, office, marketing
+  level text,                           -- entry, junior, mid, senior
+  description text,
+  created_at timestamptz default now()
+)
+```
+
+---
+
+## 5.6 Add `job_post_roles`
+
+Maps raw posts to normalized role categories.
+
+```sql
+job_post_roles (
+  job_post_id uuid references job_posts(id),
+  job_role_id uuid references job_roles(id),
+  confidence numeric,
+  primary key (job_post_id, job_role_id)
+)
+```
+
+---
+
+## 5.7 Add `job_role_skill_requirements`
+
+Aggregated weekly role requirements.
+
+```sql
+job_role_skill_requirements (
+  id uuid primary key,
+  job_role_id uuid references job_roles(id),
+  skill_id uuid references skills(id),
+  week_start date not null,
+  requirement_type text,                -- core, common, optional
+  mention_count int default 0,
+  importance_weight numeric default 1,
+  source_post_count int default 0,
+  avg_salary_bdt numeric,
+  week_change_pct numeric,
+  created_at timestamptz default now()
+)
+```
+
+This powers:
+
+- role insight pages,
+- “most demanded skills per job role”,
+- match scoring.
+
+---
+
+## 5.8 Add course-to-skill mapping
+
+Your `tracks.skills` array is useful but too coarse. For accurate matching, map skills to tracks, modules, lessons, and concepts.
+
+```sql
+content_skills (
+  id uuid primary key,
+  skill_id uuid references skills(id),
+  track_id uuid references tracks(id),
+  module_id uuid references modules(id),
+  lesson_id uuid references lessons(id),
+  concept_id uuid references concepts(id),
+  coverage_level text,                  -- intro, working, job_ready
+  evidence text,
+  created_at timestamptz default now()
+)
+```
+
+This lets Fixeth say:
+
+> “This job requires SQL. You learned SQL in Data Science → Module 2 → Lesson 4.”
+
+---
+
+## 5.9 Add learner skill profile
+
+Learner matching should not only depend on course completion. It should use mastery.
+
+```sql
+learner_skills (
+  user_id uuid references users(id),
+  skill_id uuid references skills(id),
+  proficiency numeric,                  -- 0 to 100
+  evidence_source text,                 -- lesson_complete, quiz, assessment, manual
+  evidence_ref uuid,
+  updated_at timestamptz default now(),
+  primary key (user_id, skill_id)
+)
+```
+
+How proficiency is calculated:
+
+- lesson completion gives base score,
+- quiz results increase confidence,
+- project/assessment results give job-ready confidence,
+- concept mastery can map to skill proficiency.
+
+Example:
+
+| Evidence | Proficiency impact |
+|---|---:|
+| Watched lesson | +20 |
+| Completed lesson | +40 |
+| Passed quiz | +20 |
+| Passed project | +30 |
+| Repeated incorrect quiz | -10 confidence |
+
+---
+
+## 5.10 Add `learner_job_matches`
+
+Cache job matches for performance.
+
+```sql
+learner_job_matches (
+  id uuid primary key,
+  user_id uuid references users(id),
+  job_role_id uuid references job_roles(id),
+  job_post_id uuid references job_posts(id), -- nullable for role-level match
+  match_score numeric not null,
+  matched_skill_ids uuid[],
+  missing_skill_ids uuid[],
+  explanation jsonb,
+  readiness_level text,                 -- ready, near_ready, future
+  computed_at timestamptz default now()
+)
+```
+
+Why cache?
+
+- faster dashboard,
+- stable explanations,
+- less computation on every page load,
+- can recompute after course completion or weekly scraper run.
+
+---
+
+# 6. Skill Extraction Strategy
+
+Start simple. Scale later.
+
+## Phase 1 extraction — deterministic keyword matching
+
+For buildfest/demo, use a curated keyword dictionary.
+
+Example:
+
+```python
+SKILL_ALIASES = {
+  "python": ["python", "django", "flask", "pandas", "numpy"],
+  "react": ["react", "react.js", "reactjs", "next.js"],
+  "excel": ["excel", "ms excel", "spreadsheet", "vlookup", "pivot table"],
+  "sql": ["sql", "mysql", "postgresql", "database query"],
+}
+```
+
+Pros:
+
+- fast,
+- explainable,
+- no LLM cost,
+- good for demo.
+
+Cons:
+
+- misses ambiguous requirements,
+- weaker for Bengali/English mixed posts.
+
+## Phase 2 extraction — LLM-assisted structured extraction
+
+Later, after scraping the page text, call Gemini/Groq only on selected posts.
+
+Prompt output:
+
+```json
+{
+  "role": "Data Analyst",
+  "level": "junior",
+  "required_skills": ["Excel", "SQL", "Python"],
+  "preferred_skills": ["Power BI"],
+  "tools": ["Google Sheets", "Tableau"],
+  "experience_years_min": 0,
+  "salary_min_bdt": 30000,
+  "salary_max_bdt": 60000
+}
+```
+
+Use LLM only after keyword pass to reduce cost.
+
+## Phase 3 extraction — hybrid confidence scoring
+
+Combine:
+
+- exact keyword match,
+- alias match,
+- section-aware weighting,
+- LLM extraction,
+- admin corrections.
+
+Example weighting:
+
+| Signal | Confidence |
+|---|---:|
+| Skill appears in “Requirements” section | 0.95 |
+| Skill appears in title | 0.90 |
+| Skill appears in description | 0.70 |
+| LLM extracted skill | 0.80 |
+| Only related alias found | 0.60 |
+
+---
+
+# 7. Role Normalization Strategy
+
+Raw job titles are messy:
+
+- “Jr. Executive - IT”
+- “Software Engineer React”
+- “Frontend Developer”
+- “Web Developer”
+- “MERN Stack Developer”
+
+Normalize into a smaller role taxonomy.
+
+## MVP role families
+
+Start with 8–12 roles relevant to your current and near-future tracks:
+
+1. Digital Literacy / Office Assistant
+2. Data Entry Operator
+3. Customer Support Executive
+4. Digital Marketing Executive
+5. Junior Frontend Developer
+6. Junior Backend Developer
+7. WordPress Developer
+8. Junior Data Analyst
+9. Python Developer
+10. AI Prompting / AI Tools Assistant
+11. IT Support Executive
+12. Git/GitHub Collaboration Assistant
+
+## How to map roles initially
+
+Use title keyword rules:
+
+```txt
+if title contains "frontend", "react", "next" → Junior Frontend Developer
+if title contains "data analyst", "mis", "business analyst" → Junior Data Analyst
+if title contains "office", "excel", "computer operator" → Office Assistant
+```
+
+Later, use LLM classification.
+
+---
+
+# 8. Job Match Scoring Model
+
+This is the heart of the product.
+
+## 8.1 Match score formula
+
+Recommended formula:
+
+```txt
+match_score =
+  required_skill_score * 0.70
++ preferred_skill_score * 0.15
++ proficiency_score * 0.10
++ recency_score * 0.05
+```
+
+Where:
+
+### Required skill score
+
+```txt
+matched_required_skills / total_required_skills
+```
+
+### Preferred skill score
+
+```txt
+matched_preferred_skills / total_preferred_skills
+```
+
+### Proficiency score
+
+Average learner proficiency for matched skills.
+
+### Recency score
+
+Higher if learner recently completed related lessons.
+
+---
+
+## 8.2 Hard filters
+
+To avoid misleading learners, apply hard rules before showing “Ready to apply”.
+
+A learner can only be “Ready to apply” if:
+
+- match score ≥ 85%,
+- required skill coverage ≥ 80%,
+- no critical skill is missing,
+- learner has completed at least one relevant course/track,
+- proficiency average ≥ 70.
+
+A learner can be “Near-ready” if:
+
+- match score ≥ 70%,
+- required skill coverage ≥ 60%,
+- missing skills can be learned through existing Fixeth content.
+
+---
+
+## 8.3 Critical skill handling
+
+Some skills should be critical for a role.
+
+Example:
+
+For Junior Frontend Developer:
+
+- HTML/CSS: critical
+- JavaScript: critical
+- React: core
+- Git: common
+- Tailwind: optional
+
+If a learner lacks JavaScript, do not show them as job-ready even if they match other skills.
+
+---
+
+## 8.4 Example match explanation JSON
+
+```json
+{
+  "summary": "You are near-ready for Junior Data Analyst roles.",
+  "score_breakdown": {
+    "required_skill_score": 0.75,
+    "preferred_skill_score": 0.50,
+    "proficiency_score": 0.82,
+    "recency_score": 1.0
+  },
+  "matched_skills": ["Excel", "SQL", "Python", "Git"],
+  "missing_skills": ["Power BI", "Dashboard Reporting"],
+  "recommended_lessons": [
+    {
+      "lesson_id": "...",
+      "title": "Intro to Power BI",
+      "reason": "Frequently required in Data Analyst jobs"
+    }
+  ]
+}
+```
+
+---
+
+# 9. Course Completion Experience
+
+This is where your idea becomes powerful.
+
+## After completing a lesson
+
+Show a small card:
+
+> “This lesson improved your match for 3 job roles.”
+
+Example:
+
+- Data Analyst: 62% → 68%
+- Office Assistant: 78% → 83%
+- AI Tools Assistant: 55% → 60%
+
+## After completing a course/track
+
+Show a stronger career screen:
+
+```txt
+Congratulations! You completed Data Science Foundations.
+
+You are now:
+
+Ready to apply:
+- Office Data Assistant — 88% match
+- Junior MIS Assistant — 85% match
+
+Almost ready:
+- Junior Data Analyst — 79% match
+  Missing: Power BI, dashboard storytelling
+
+Recommended next:
+Complete “Power BI Essentials” to unlock 21 more matching job posts.
+```
+
+## Dashboard card
+
+Add:
+
+- “Your strongest job matches”
+- “Trending skills in your track”
+- “1 course away from these roles”
+
+## Tools screen
+
+Make it the full dashboard:
+
+- trending skills,
+- role demand table,
+- salary ranges,
+- curriculum coverage,
+- learner match preview.
+
+---
+
+# 10. Market Insights Dashboard
+
+The dashboard should answer five questions.
+
+## 10.1 Which skills are most demanded overall?
+
+Example:
+
+| Skill | Mentions | WoW change | In curriculum? |
+|---|---:|---:|---|
+| Excel | 94 | +12% | Yes |
+| Python | 47 | +23% | Yes |
+| React | 41 | +18% | Partial |
+| Power BI | 33 | +31% | No |
+
+## 10.2 Which skills are most demanded per role?
+
+Example:
+
+| Role | Top skills |
+|---|---|
+| Data Analyst | Excel, SQL, Power BI, Python |
+| Frontend Developer | JavaScript, React, HTML/CSS, Git |
+| Office Assistant | Excel, Word, Email, Typing |
+
+## 10.3 Which roles are growing fastest?
+
+Example:
+
+| Role | Posts this week | WoW change |
+|---|---:|---:|
+| Data Analyst | 38 | +24% |
+| Digital Marketing | 52 | +18% |
+| React Developer | 27 | +13% |
+
+## 10.4 Which curriculum gaps exist?
+
+Example:
+
+| Skill | Demand | Curriculum coverage | Action |
+|---|---:|---|---|
+| Power BI | High | Missing | Add module |
+| SEO | Medium | Missing | Add mini-course |
+| Git | Medium | Strong | Promote course |
+
+## 10.5 Which tracks lead to which jobs?
+
+Example:
+
+| Fixeth track | Best matched roles |
+|---|---|
+| Digital Literacy | Office Assistant, Data Entry Operator |
+| Git | Junior Developer Assistant, Internship roles |
+| Data Science | Junior Data Analyst, MIS Assistant |
+| AI for Everyone | AI Tools Assistant, Digital Productivity Executive |
+
+---
+
+# 11. API Plan
+
+Follow the project convention:
+
+> API routes validate with Zod and return `{ data, error }`.
+
+Also keep DB logic in `lib/supabase/queries/`, not inline route files.
+
+## MVP APIs
+
+### `GET /api/jobs`
+
+For existing `plan2.md` MVP.
+
+Returns:
+
+- top trending skills,
+- week change,
+- salary average,
+- in-curriculum flag.
+
+### `GET /api/jobs/roles`
+
+Returns role demand insights.
+
+Query params:
+
+```txt
+?family=data&level=entry
+```
+
+### `GET /api/jobs/matches`
+
+Returns personalized learner matches.
+
+Server resolves user from Supabase auth.
+
+Response:
+
+```ts
+{
+  data: {
+    ready: JobMatch[],
+    near_ready: JobMatch[],
+    future: JobMatch[]
+  },
+  error: null
+}
+```
+
+### `POST /api/jobs/recompute-matches`
+
+Admin/server-only or triggered after course completion.
+
+Use cases:
+
+- after lesson completion,
+- after track completion,
+- after weekly scraper run.
+
+---
+
+# 12. Implementation Roadmap
+
+## Phase A — Competition-safe MVP
+
+Goal: ship visible value quickly.
+
+Deliverables:
+
+1. `scripts/job_scraper.py`
+   - scrape Bdjobs/Chakri public listings,
+   - extract title, source, salary text, skill mentions,
+   - aggregate skill counts,
+   - insert into `job_market_signals`.
+
+2. Seed fallback data
+   - 20–30 realistic rows.
+
+3. `GET /api/jobs`
+   - top 10 skills for current week.
+
+4. Tools screen
+   - “Job Market Signals” table.
+
+5. Dashboard card
+   - top 5 trending skills.
+
+Success criteria:
+
+- scraper can run locally,
+- Supabase receives rows,
+- `/api/jobs` returns `{ data, error }`,
+- dashboard/tools show real or seeded data,
+- no build errors.
+
+This is enough for the demo.
+
+---
+
+## Phase B — Structured job intelligence
+
+Goal: move from “skill trends” to “job role intelligence”.
+
+Deliverables:
+
+1. Add tables:
+   - `job_posts`,
+   - `skills`,
+   - `job_post_skills`,
+   - `job_roles`,
+   - `job_post_roles`,
+   - `job_role_skill_requirements`.
+
+2. Build skill taxonomy seed:
+   - start with 50–100 skills.
+
+3. Update scraper:
+   - store raw job posts,
+   - deduplicate by URL/hash,
+   - extract canonical skills,
+   - classify role.
+
+4. Create aggregation script:
+   - weekly role-skill demand,
+   - salary median,
+   - week-over-week trend.
+
+5. Add role insights UI:
+   - role pages or Tools tab.
+
+Success criteria:
+
+- can answer “Top skills for Data Analyst this week”,
+- can answer “Which Fixeth skills are not covered yet”,
+- deduplication prevents repeated posts.
+
+---
+
+## Phase C — Learner skill profile
+
+Goal: convert LMS activity into employability profile.
+
+Deliverables:
+
+1. Add `content_skills` mapping.
+
+2. Add `learner_skills` table.
+
+3. When learner completes lesson/quiz:
+   - update skill proficiency.
+
+4. Backfill existing learner skill profiles from:
+   - `progress`,
+   - `quiz_results`,
+   - `learner_mastery`,
+   - `tracks.skills`.
+
+5. Add “My Skills” section:
+   - skills learned,
+   - proficiency level,
+   - evidence.
+
+Success criteria:
+
+- completing a course updates learner skill profile,
+- user can see evidence-backed skills,
+- skill profile is not only a static course-completion badge.
+
+---
+
+## Phase D — Personalized job matching
+
+Goal: show job match percentage after course completion.
+
+Deliverables:
+
+1. Add `learner_job_matches` cache.
+
+2. Implement matching function:
+   - role-level match,
+   - optional job-post-level match.
+
+3. Trigger recomputation:
+   - after track completion,
+   - after weekly scraper run,
+   - manually from admin.
+
+4. Add course completion career screen:
+   - ready jobs,
+   - near-ready jobs,
+   - missing skills,
+   - recommended lessons.
+
+5. Add dashboard card:
+   - “Your strongest job matches”.
+
+Success criteria:
+
+- learner sees only high-quality matches,
+- match explanation is clear,
+- missing skills link back to lessons.
+
+---
+
+## Phase E — Curriculum intelligence loop
+
+Goal: make Fixeth self-improving.
+
+Deliverables:
+
+1. Admin “Curriculum Gaps” view.
+
+2. Signals:
+   - high-demand missing skills,
+   - rising skills not in curriculum,
+   - declining skills,
+   - role demand changes.
+
+3. Curriculum action statuses:
+   - pending_review,
+   - planned,
+   - content_added,
+   - dismissed.
+
+4. Optional AI-generated content suggestions:
+   - “Add Power BI lesson after Excel module.”
+
+Success criteria:
+
+- admins can prioritize course updates based on market data,
+- every curriculum change remains human-reviewed.
+
+---
+
+# 13. Scraper Engineering Plan
+
+## 13.1 Scraper responsibilities
+
+`scripts/job_scraper.py` should do only ingestion and extraction.
+
+It should not contain UI logic or matching logic.
+
+Recommended structure:
+
+```txt
+scripts/job_scraper.py
+services/scraper/
+  sources/
+    bdjobs.py
+    chakri.py
+  extractors/
+    skills.py
+    salary.py
+    roles.py
+  storage/
+    supabase_client.py
+  config.py
+```
+
+Since `plan2.md` asks for `scripts/job_scraper.py`, you can start with one script, but keep functions separated so it can later move into `services/scraper/` cleanly.
+
+## 13.2 Deduplication
+
+Use `content_hash`:
+
+```txt
+hash(title + company + source + posted_date)
+```
+
+If URL is stable, also use:
+
+```txt
+source + source_job_id
+```
+
+## 13.3 Rate limiting and safety
+
+- scrape public listings only,
+- add delay between pages,
+- respect robots/terms as much as possible,
+- do not login,
+- do not collect applicant data,
+- store source URL for audit.
+
+## 13.4 Fallback strategy
+
+For demo:
+
+- always seed fallback `job_market_signals`,
+- scraper failure should not break dashboard,
+- API should return seeded latest rows if live scrape unavailable.
+
+---
+
+# 14. Matching Engine Location
+
+Follow project conventions:
+
+- DB queries in `lib/supabase/queries/`,
+- business logic outside API routes,
+- agent logic in `lib/agents/`.
+
+Recommended files later:
+
+```txt
+lib/supabase/queries/jobs.ts
+lib/career/skill-normalize.ts
+lib/career/match-score.ts
+lib/career/role-taxonomy.ts
+lib/agents/career.ts
+app/api/jobs/route.ts
+app/api/jobs/matches/route.ts
+```
+
+`Career Agent` responsibilities:
+
+- explain job match in Bengali/English,
+- summarize missing skills,
+- recommend next lessons,
+- generate learner-friendly guidance.
+
+Important: the numeric matching should be deterministic first. Use LLM only to explain, not to decide the score.
+
+---
+
+# 15. UI/UX Strategy
+
+## 15.1 Dashboard
+
+Cards:
+
+1. Trending Skills
+2. Your Job Matches
+3. One Course Away
+
+Example copy:
+
+> “You are 2 lessons away from being a strong match for Junior Data Analyst roles.”
+
+## 15.2 Course completion page/modal
+
+This should be the most emotionally rewarding touchpoint.
+
+Example:
+
+```txt
+You completed Git Essentials 🎉
+
+Your new job matches:
+- Junior Web Developer Intern — 72% → 81%
+- Frontend Developer Intern — 65% → 75%
+- Software QA Intern — 58% → 68%
+
+Git is mentioned in 37 active job posts this week.
+```
+
+## 15.3 Tools screen
+
+Sections:
+
+- Market overview,
+- Trending skills,
+- Role demand,
+- Curriculum gaps,
+- Salary benchmarks.
+
+## 15.4 Track library
+
+Each track card can show:
+
+- jobs unlocked by this track,
+- average market demand,
+- top skills taught.
+
+Example:
+
+> “Data Science Foundations → prepares you for Junior Data Analyst, MIS Assistant, Office Data Assistant.”
+
+---
+
+# 16. Strategic Demo Narrative
+
+For the competition/pitch, frame it like this:
+
+1. Learner joins Fixeth because they want a job.
+2. Fixeth recommends a track.
+3. They learn with Bengali AI tutor.
+4. They complete a course.
+5. Fixeth shows real jobs where their new skills apply.
+6. The system also shows market gaps, so Fixeth’s curriculum evolves with employer demand.
+
+This creates a stronger story than simply:
+
+> “We scrape job posts.”
+
+The stronger story is:
+
+> “Fixeth closes the loop between learning and employability.”
+
+---
+
+# 17. Risks and Mitigations
+
+## Risk 1 — Scrapers get blocked
+
+Mitigation:
+
+- seed fallback data,
+- modular source adapters,
+- add RSS/API sources later,
+- use public pages only,
+- cache results.
+
+## Risk 2 — Skill extraction is noisy
+
+Mitigation:
+
+- start with curated skill dictionary,
+- show confidence,
+- admin review,
+- avoid overclaiming.
+
+## Risk 3 — Match percentage misleads learners
+
+Mitigation:
+
+- use hard thresholds,
+- explain score breakdown,
+- show “near-ready” instead of “ready” when uncertain,
+- never guarantee employment.
+
+## Risk 4 — Curriculum mapping is incomplete
+
+Mitigation:
+
+- start with `tracks.skills`,
+- gradually add `content_skills`,
+- allow admin corrections.
+
+## Risk 5 — Salary data is sparse
+
+Mitigation:
+
+- show salary only when enough postings include it,
+- show ranges with confidence labels,
+- avoid false precision.
+
+---
+
+# 18. What to Build First
+
+Since you are starting now, I recommend this exact order.
+
+## Step 1 — Build the MVP scraper and signal API
+
+Do this first because it gives demo-visible output quickly.
+
+Files likely involved:
+
+- `scripts/job_scraper.py`
+- `app/api/jobs/route.ts`
+- `lib/supabase/queries/jobs.ts`
+- possibly seed SQL for fallback rows
+
+Goal:
+
+> top skills from job posts appear in dashboard/tools.
+
+## Step 2 — Add skill taxonomy locally inside scraper
+
+Even before adding a `skills` table, create a clean alias dictionary.
+
+This prevents messy data from day one.
+
+## Step 3 — Store richer job post snapshots
+
+If time allows, add `job_posts` and `job_post_skills` before UI matching.
+
+This is the point where the system becomes scalable.
+
+## Step 4 — Create role-level insights
+
+Start with 8–12 normalized roles.
+
+## Step 5 — Add learner matching after course completion
+
+Start with track-level matching using `tracks.skills`, then upgrade to `content_skills` and `learner_skills`.
+
+---
+
+# 19. MVP vs Scalable Version
+
+## Competition MVP
+
+Ship:
+
+- scraper,
+- `job_market_signals`,
+- trending skills API,
+- dashboard/tools UI,
+- seeded fallback.
+
+Do not overbuild.
+
+## Scalable post-MVP
+
+Add:
+
+- canonical skills,
+- raw job posts,
+- role taxonomy,
+- course-to-skill map,
+- learner skill profile,
+- cached job matches,
+- career agent explanations.
+
+This avoids building a brittle prototype while still giving a clear path to a real product.
+
+---
+
+# 20. Suggested PRD Update Later
+
+When you update `docs/PRD.md`, add this as a new section:
+
+## Career Match Engine
+
+Core requirements:
+
+1. Scrape public job postings weekly.
+2. Extract and normalize skills.
+3. Aggregate skill and role demand.
+4. Map job requirements to Fixeth curriculum.
+5. Build learner skill profiles from progress, quiz, and assessment evidence.
+6. Show personalized job matches after course completion.
+7. Explain match percentage with matched and missing skills.
+8. Recommend exact lessons to close job-readiness gaps.
+9. Keep admin review before curriculum changes.
+10. Never guarantee employment; position as readiness guidance.
+
+---
+
+# 21. Final Recommendation
+
+Build this in two horizons:
+
+## Horizon 1: Demo-winning version
+
+A polished **Job Market Signals** dashboard using real or seeded scraped data.
+
+This satisfies the current `plan2.md` requirement and gives judges a clear “real-world data” artifact.
+
+## Horizon 2: Product-defining version
+
+A full **Career Match Engine** that connects:
+
+```txt
+job posts → skills → roles → courses → learner mastery → job readiness
+```
+
+That is the scalable, disruptive version.
+
+
