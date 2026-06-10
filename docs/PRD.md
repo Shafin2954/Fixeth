@@ -42,7 +42,7 @@ Build the world's best curated tech education, localized in Bengali, with AI tha
 2. **AI tutor that jumps the video.** Type a question, get a grounded answer with a clickable timestamp; click it, the video seeks to the exact moment. Hero feature.
 3. **Topic-level personalization.** Every video is broken into topics with timestamps; the AI knows which topic answers your question and routes you there.
 4. **Mobile-first, low-bandwidth-aware.** Built for 375px screens on 3G. Lighthouse mobile score ≥ 90 on hero screens.
-5. **NRB mode.** One toggle surfaces the lessons most useful for Bangladeshis abroad: freelancing, cross-border payments, working globally.
+5. **Job market-driven curriculum.** Real weekly scraped data from Bdjobs and Chakri surfaces trending skills on the dashboard and informs which tracks to prioritize.
 6. **Free + BYOA-friendly.** No credit card to start. Bring-your-own-API-key (BYOA) for unlimited AI use; platform provides a shared fallback for instant access.
 
 ---
@@ -55,21 +55,21 @@ Build the world's best curated tech education, localized in Bengali, with AI tha
 |---|---|---|---|
 | 1 | Email + Google OAuth login | ✅ Shipped | Supabase Auth + `@supabase/ssr` |
 | 2 | 5-step onboarding (mobile-friendly) | ✅ Shipped (rebuilt mobile) | Single-column, swipeable |
-| 3 | Dashboard (mobile-first) | ✅ Shipped (rebuilt mobile) | Streak, enrolled tracks, NRB mode card |
-| 4 | Track library (5 published tracks) | ✅ Shipped | Digital Literacy, Office & Productivity, AI for Everyone, Git, Data Science |
+| 3 | Dashboard (mobile-first) | ✅ Shipped (rebuilt mobile) | Streak, enrolled tracks, Trending Skills card |
+| 4 | Track library (5 published tracks) | ✅ Shipped | Digital Literacy, Git, Data Science + 2 more |
 | 5 | Guided Video workspace | ✅ Shipped (rebuilt mobile) | 3-column desktop, single-column + bottom-sheet mobile |
 | 6 | **Video timestamp-seek via AI chat** | ✅ Shipped (fixed) | Hero feature. ±5s accuracy on 5 hero videos. |
 | 7 | **Platform-shared AI fallback** | ✅ Shipped | Admin-managed rotating API key, retry-once, soft-fail |
-| 8 | Bengali subtitle overlay (EN/বাংলা/Off) | ✅ Shipped | 250ms polling, custom overlay (no YouTube API limits) |
+| 8 | Bengali subtitle overlay (EN/বাংলা/Off) | ✅ Shipped | 250ms polling, custom overlay |
 | 9 | Quiz engine + practice items | ✅ Shipped | MCQ auto-graded, retakes unlimited, best score counts |
 | 10 | **Topic extraction from video transcripts** | ✅ Shipped | Per-lesson topic boundaries stored, used by AI tutor |
-| 11 | **Admin page** | ✅ Shipped | Edit /docs markdown, rotate AI fallback key, mark "limit used" |
-| 12 | **NRB mode** | ✅ Shipped | Toggle in profile, surfaces NRB-relevant lessons |
+| 11 | **Admin page** | ✅ Shipped | Edit /docs markdown, rotate AI fallback key, audit log |
+| 12 | **Job market scraper** | ✅ Shipped | Playwright scraper for Bdjobs + Chakri; weekly data; signal dashboard in Tools screen |
 | 13 | Public landing page | ✅ Shipped | Hero animation, 4 feature cards, "Sign up free" CTA |
-| 14 | Static pricing page | ✅ Shipped | 3 tiers (Free, Pro, Institutional) — no checkout, no payment |
+| 14 | Static pricing page | ✅ Shipped | 3 tiers (Free, Pro, Institutional) — no checkout |
 | 15 | About / Team / Contact | ✅ Shipped | Static |
 | 16 | **Concept dependency graph** | ✅ Shipped | Auto-extracted from video topics; cross-track memory |
-| 17 | **Adaptive path recommendations** | ✅ Shipped | "We suggest you take Track X based on your goals" |
+| 17 | **Adaptive path recommendations** | ✅ Shipped | Goal + experience level → track recommendation |
 | 18 | Complete PRD + ARCHITECTURE + pitch | ✅ Shipped | This document + 4 sibling `.md` files |
 | 19 | 3-minute demo video | ✅ Shipped | Recorded, captioned EN + বাংলা, in `docs/demo/` |
 
@@ -78,7 +78,7 @@ Build the world's best curated tech education, localized in Bengali, with AI tha
 These are **deferred to post-launch** and explicitly cut from this submission to ship the core well:
 
 - Payment processing (Stripe, SSLCommerz, bKash) — pricing page is static only.
-- Live job-market scraping (Playwright → Bdjobs/Chakri/Indeed/LinkedIn) — schema reserved, scraper is post-launch.
+- NRB mode toggle (schema column reserved; UI toggle is post-launch).
 - GitHub Codespace real integration — desktop-only stub, hidden on mobile.
 - Public portfolio + certificate PDF generation — verify endpoint reserved, PDF is post-launch.
 - Voice input in AI Mentor — typed input only.
@@ -104,6 +104,7 @@ Full diagram in `docs/ARCHITECTURE.md`. Quick view:
 │  APPLICATION LOGIC LAYER                                     │
 │  Next.js API Routes · Supabase Edge Functions               │
 │  AI Chat · Profile · Admin · Subtitle Overlay · Progress    │
+│  Job Signals API                                            │
 ├─────────────────────────────────────────────────────────────┤
 │  AI INTELLIGENCE LAYER                                       │
 │  Platform-shared: rotating Gemini key (admin-managed)        │
@@ -119,7 +120,8 @@ Full diagram in `docs/ARCHITECTURE.md`. Quick view:
 │  Curriculum Agent · Tutor Agent · Assessment Agent          │
 ├─────────────────────────────────────────────────────────────┤
 │  CONTENT + ADMIN LAYER                                       │
-│  /admin (Next.js) — /docs markdown editor · AI key rotation │
+│  /admin — /docs markdown editor · AI key rotation           │
+│  scripts/job_scraper.py — weekly Playwright job data        │
 │  Supabase Storage — config + fallback markdown              │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -146,6 +148,7 @@ Full diagram in `docs/ARCHITECTURE.md`. Quick view:
 | Transcription | OpenAI Whisper (local, in `scripts/`) | One-time per video |
 | Embeddings | Ollama nomic-embed-text (768-dim) | Free, local, sufficient quality |
 | BYOA | Client-side localStorage (zero server cost) | Teaches real API management |
+| Job Scraping | Playwright (`scripts/job_scraper.py`) | Handles JS-heavy BD job boards (Bdjobs, Chakri) |
 | Hosting | Vercel | Frontend + API routes |
 
 ---
@@ -157,11 +160,12 @@ Existing tables (from `supabase/migrations/`): `users`, `tracks`, `modules`, `le
 **New for v2.0:**
 
 ```sql
--- NRB preference
-ALTER TABLE users ADD COLUMN IF NOT EXISTS nrb_mode BOOLEAN DEFAULT FALSE;
+-- NRB preference (schema reserved; UI toggle is post-launch)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nrb_mode    BOOLEAN DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS country_code TEXT;
+ALTER TABLE lessons ADD COLUMN IF NOT EXISTS nrb_relevant BOOLEAN DEFAULT FALSE;
 
--- Per-lesson topic boundaries (auto-extracted, manually curated)
+-- Per-lesson topic boundaries (manually curated)
 CREATE TABLE IF NOT EXISTS lesson_topics (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   lesson_id     UUID REFERENCES lessons(id) ON DELETE CASCADE,
@@ -174,9 +178,6 @@ CREATE TABLE IF NOT EXISTS lesson_topics (
   order_index   INT NOT NULL,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
-
-CREATE INDEX IF NOT EXISTS idx_lesson_topics_lesson ON lesson_topics(lesson_id);
-CREATE INDEX IF NOT EXISTS idx_lesson_topics_nrb ON lesson_topics(nrb_relevant) WHERE nrb_relevant = TRUE;
 
 -- Admin-managed AI fallback keys (one active at a time)
 CREATE TABLE IF NOT EXISTS admin_config (
@@ -217,29 +218,29 @@ Full SQL in `supabase/migrations/20260610_plan2_schema.sql`.
 1. Land on `/` (public landing) → click "Sign up free"
 2. Sign up with Google (1-tap OAuth) → redirect to `/onboarding`
 3. Onboarding: language → goal → level → track pick → diagnostic (5 questions)
-4. Land on `/dashboard` → see "Continue learning" with first lesson
+4. Land on `/dashboard` → see "Continue learning" + "Trending Skills" card
 5. Click lesson → `/learn/[lessonId]` opens Guided Video
 6. Click "Chat with video" tab → type: *"What is a prompt?"*
 7. AI responds in Bengali (or English, based on preference) with a clickable timestamp
 8. Click timestamp → video seeks to that moment, plays from there
 9. **Total elapsed time: < 90 seconds for first AI insight.**
 
-### 9.2 NRB user flow
+### 9.2 Job market data flow
 
-1. User signs up, picks "Bengali abroad" as goal in onboarding
-2. Lands on dashboard with NRB card surfaced
-3. Profile → toggle "NRB mode" → persisted to `users.nrb_mode`
-4. Dashboard "NRB-relevant" lesson feed updates
-5. Track library shows NRB-flagged tracks prominently
+1. `scripts/job_scraper.py` runs (manually for demo; weekly pg_cron post-launch)
+2. Playwright fetches public job listings from Bdjobs.com + Chakri.com
+3. Skill mentions extracted and counted; inserted into `job_market_signals`
+4. `/api/jobs` returns top 10 skills by `mention_count` for the current week
+5. Dashboard "Trending Skills" card + Tools screen signal table both read from this endpoint
+6. Admin reviews signals and flags rising/declining skills for curriculum action
 
 ### 9.3 Admin flow
 
-1. Admin signs in with `@fixeth.ai` email → `users.role = 'platform_admin'`
-2. Lands on `/admin` instead of `/dashboard`
-3. Three tabs: **Docs** (edit /docs markdown), **API Keys** (rotate fallback key), **Logs** (recent admin actions)
-4. Edit a doc → click "Save" → markdown stored in `docs_content` table, cached for 5 min
-5. Rotate API key → paste new key in field → click "Mark active" → old key marked `limit_used`, new key becomes active
-6. Both actions append to `admin_audit` log
+1. Admin signs in → `users.role = 'platform_admin'` → routed to `/admin`
+2. Three tabs: **Docs** (edit /docs markdown), **API Keys** (rotate fallback key), **Logs** (audit)
+3. Edit a doc → click "Save" → markdown stored in `docs_content` table
+4. Rotate API key → paste new key → click "Mark active" → old key marked `limit_used`
+5. Both actions append to `admin_audit` log
 
 ---
 
@@ -249,13 +250,13 @@ Full SQL in `supabase/migrations/20260610_plan2_schema.sql`.
 
 **Process:**
 1. Fetch `lesson_topics` for `lesson_id` ordered by `start_time`.
-2. Fetch `transcript_chunks` for `lesson_id` (existing data).
+2. Fetch `transcript_chunks` for `lesson_id`.
 3. **Topic-anchored retrieval:** for each topic, build a text representation `[topic_label] chunk_1 chunk_2 ... chunk_n` where chunks fall within the topic's `[start_time, end_time]`.
 4. Embed the user's question (Ollama nomic-embed-text, 768-dim).
 5. Cosine similarity search over the topic-anchored representations (pgvector, top 3, threshold 0.7).
 6. Pass top topics + their chunks to the LLM as grounded context.
 7. LLM responds in the user's language with a clickable `[ts:MM:SS]` marker.
-8. UI parses the marker, makes it a clickable button → seek the YouTube player.
+8. UI parses the marker → clickable button → seek the YouTube player.
 
 **Output:**
 ```ts
@@ -268,77 +269,80 @@ Full SQL in `supabase/migrations/20260610_plan2_schema.sql`.
 ```
 
 **Failure modes (explicit):**
-- No topic matches with similarity ≥ 0.7 → respond: "I couldn't find this in the video." (no hallucination)
-- AI provider returns error → retry once with secondary key (if configured) → soft-fail to user with the error message
-- LLM omits the timestamp marker → UI shows a "no timestamp found" hint and suggests rephrasing
+- No topic matches ≥ 0.7 → "I couldn't find this in the video." (no hallucination)
+- AI provider error → retry once with secondary key → soft-fail to user with error message
+- LLM omits timestamp marker → UI shows "no timestamp found" hint, suggests rephrasing
 
 ---
 
-## 11. NRB Mode — Detailed
+## 11. Job Market Scraper — Detailed
 
-**Why:** Bangladesh is the 8th-largest remittance-receiving country globally ($23B+ in 2024). The 10M+ Bangladeshis living abroad need Bengali-language education with examples relevant to their cross-border lives. They are also the highest-converting, highest-paying user segment.
+**Why:** The rubric requires "real-world data — not hardcoded." Scraped job postings from Bangladesh's top job boards satisfy this requirement and directly inform which skills the curriculum should teach.
 
-**Feature scope:**
-- `users.nrb_mode` boolean column
-- `users.country_code` text column
-- `lessons.nrb_relevant` boolean + `lesson_topics.nrb_relevant` boolean
-- Profile settings: toggle + country dropdown (BD, KSA, UAE, UK, US, Other)
-- Dashboard: when `nrb_mode = TRUE`, surface "From abroad" card with 5 NRB-flagged lessons
-- Track library: NRB-flagged lessons shown first when in NRB mode
-- NRB-specific content: "Freelancing 101" track is NRB-prioritized (free for P3 users)
+**Script:** `scripts/job_scraper.py`
 
-**Content rules:** an NRB-relevant lesson is one that covers any of:
-- Remittance, cross-border payments, Payoneer, Wise, bKash-to-international
-- Working remotely for foreign clients (Upwork, Fiverr, Toptal)
-- BD diaspora community and culture preservation
-- Immigration-related tech (visa applications, credential conversion)
-- Tax basics for BD workers abroad
+**Sources:**
+- Bdjobs.com — Bangladesh's largest job board
+- Chakri.com — secondary BD job board
+
+**What it collects per run:**
+- Job title, skills/tools mentioned (keyword match against a preset list), salary range (when shown), source site, scraped date. No PII — no applicant names, emails, or phone numbers.
+
+**Output table:** `job_market_signals` (already in schema from original migrations)
+- `skill` — extracted skill name
+- `source` — `bdjobs` | `chakri`
+- `mention_count` — times seen this week
+- `week_change_pct` — % change vs previous week
+- `avg_salary_bdt` — median salary from postings that included one
+- `in_curriculum` — auto-flagged when skill matches `tracks.skills` array
+- `status` — `pending_review` | `actioned` | `dismissed`
+
+**In the UI:**
+- Dashboard "Trending Skills" card — top 5 skills, mention counts
+- Tools screen "Job Market Signals" section — full table with week-on-week change
+- Admin sees signals with `pending_review` status for curriculum decisions
+
+**Demo safety net:** 20–30 rows seeded manually before the demo so the dashboard always has data even if Playwright hits bot detection on the day.
 
 ---
 
 ## 12. Admin Page — Detailed
 
-**Why:** Avoid Vercel re-deployments for routine changes (content, API key rotation). Single source of truth for non-developer admins.
+**Why:** Avoid Vercel re-deployments for routine changes (content, API key rotation).
 
 **Three tabs:**
 
-1. **Docs** — list of `/docs/*` pages (slug, title, last updated). Click → Markdown editor (plain `<textarea>` + preview). Save → markdown stored in `docs_content` table, served by `/docs/[slug]` route on read with a 5-min in-memory cache.
+1. **Docs** — list of `/docs/*` pages. Click → Markdown editor (`<textarea>` + preview). Save → stored in `docs_content` table, served at `/docs/[slug]` with 5-min cache.
 
-2. **API Keys** — 4 fields, one marked `active` at any time. UI: paste new key in field 1 → click "Save" → key stored in `admin_config` table. Click "Mark active" on any key → that key becomes the platform-shared fallback. Click "Mark limit used" → key's `status` becomes `limit_used` and the next field is automatically marked active. Admin rotates by pasting a new key in the next empty field.
+2. **API Keys** — 4 slots, one `active` at a time. Paste new key → "Save". "Mark active" on any slot → becomes the platform fallback. "Mark limit used" → next empty slot auto-activates. Admin rotates by pasting new key in next empty slot.
 
-3. **Logs** — read-only `admin_audit` table, paginated, last 100 actions.
+3. **Logs** — read-only `admin_audit` table, last 100 actions, paginated.
 
-**Auth:** simple `users.role = 'platform_admin'` check in the layout. No separate auth system. Hardcoded admin email list in env var: `FIXETH_ADMIN_EMAILS=admin@fixeth.ai,shafin@fixeth.ai`.
+**Auth:** `users.role = 'platform_admin'` check in `app/admin/layout.tsx`. Admin emails set via `FIXETH_ADMIN_EMAILS` env var.
 
 **API call chain at runtime:**
 ```
 User → /api/chat (no BYOA key) → read admin_config.active_api_key
                                 → call Gemini/Groq with that key
                                 → on rate-limit error → soft-fail message
-                                → never expose the key to client
+                                → key never exposed to client
 ```
-
-**No key limit tracking, no auto-rotation, no observability dashboards.** Admin sees errors in the live chat, walks to the admin page, clicks "Mark limit used" on the failing key, and the next field becomes active. Simple. Honest. Works.
 
 ---
 
 ## 13. Concept Graph & Personalization
 
 **Auto-extracted topics as concepts:**
-- Each `lesson_topics` row is effectively a "concept node" for the personalization engine.
-- `concepts` and `concept_edges` tables now reference these topics (manually mapped for the 5 published tracks initially).
-- The "personalization engine" is: given a learner's `goal` + `experience_level` + diagnostic scores, recommend the next lesson in the sequence that has the most un-mastered prerequisite topics.
+- Each `lesson_topics` row maps to a concept node.
+- `concepts` and `concept_edges` tables reference these topics.
+- The personalization engine: given `goal` + `experience_level` + diagnostic scores, recommend the next lesson with the most un-mastered prerequisite topics.
 
 **Adaptive path:**
-- For each enrolled track, build a list of `[topic_id → mastery_score]` for the learner.
-- Traverse topics in `order_index` order, skipping topics with `mastery_score >= 80` and injecting a remedial micro-lesson before topics with `mastery_score < 60`.
-- Store the result in `adaptive_paths.path_json`.
-- Render on dashboard as "Your path: 1 → 2 → (skipped 3, you already know it) → 4".
+- Traverse topics in `order_index` order, skipping `mastery_score >= 80` and injecting remedial micro-lessons before `mastery_score < 60`.
+- Store result in `adaptive_paths.path_json`.
+- Dashboard renders: "Your path: 1 → 2 → (skipped 3, you already know it) → 4."
 
-**For final-round demo:** we show:
-- "We recommend the Office & Productivity track for you" (recommendation from `users.goal` + `users.experience_level`).
-- "Skip lesson 2 — you already know file management" (concept graph traversal showing one skip).
-- This is honest, scoped, and matches the rubric's "output tailored to user profiles" requirement.
+**For final-round demo:** show "We recommend the Data Science track for you" (from `users.goal` + `users.experience_level`) and "Skip lesson 2 — you already know file management" (one visible skip from the graph).
 
 ---
 
@@ -347,21 +351,21 @@ User → /api/chat (no BYOA key) → read admin_config.active_api_key
 | Rubric category | Weight | Our claim | Backing artifact |
 |---|---|---|---|
 | Innovation | 20% | Topic-anchored RAG that turns any YouTube video into a navigable knowledge graph | `lib/ai/video-chat.ts` + `lesson_topics` table + demo video sec 90–150 |
-| Technical Execution | 20% | Production-grade: RLS on all tables, retry-once AI fallback, audit log, mobile-first rebuild, ≥90 Lighthouse mobile | `supabase/migrations/*`, `lib/ai/byoa.ts`, `app/(public)/*`, `docs/ARCHITECTURE.md` |
-| Business Model & Global Readiness | 20% | 3-tier pricing (static page), NRB strategy for diaspora market (15M+ potential users), institutional B2B path | `app/(public)/pricing/page.tsx`, `docs/SCALABILITY_ROADMAP.md` §3 |
-| Real-World Impact & Ethical AI | 20% | KPIs defined, ethical docs, RAG no-hallucination, PII minimization | `docs/ETHICS.md`, `docs/DATA_STRATEGY.md` |
-| Scalability & NRB Collaboration | 10% | Cloud-native Supabase + Vercel, modular agents, NRB member (Hungary uni lecturer) for international standards review | `docs/ARCHITECTURE.md` §7, NRB flow in §11 above |
-| Presentation | 10% | Compelling pitch, rubric coverage map (this table), demo video | `docs/demo/*.mp4`, 3-min script in `plan2.md` §5 |
+| Technical Execution | 20% | Production-grade: RLS on all tables, retry-once AI fallback, admin audit log, mobile-first rebuild, ≥90 Lighthouse mobile | `supabase/migrations/*`, `lib/ai/server-fallback.ts`, `/admin` page |
+| Business Model & Global Readiness | 20% | 3-tier pricing, NRB diaspora strategy (15M+ potential users), institutional B2B path | `/pricing`, `docs/SCALABILITY_ROADMAP.md` §3–4 |
+| Real-World Impact & Ethical AI | 20% | KPIs defined, ethical docs, RAG no-hallucination, PII minimization, real job market data | `docs/ETHICS.md`, `docs/DATA_STRATEGY.md`, `job_market_signals` table |
+| Scalability & NRB Collaboration | 10% | Cloud-native Supabase + Vercel, modular agents, NRB team member (Hungary lecturer) | `docs/ARCHITECTURE.md` §7–8, team page |
+| Presentation | 10% | Compelling pitch, rubric coverage map (this table), demo video | `docs/demo/*.mp4`, pitch script in `plan2.md` §5 |
 
 ### 14.2 Mandatory Technical "Winning Formula"
 
 | Requirement | Claimed? | Backing artifact |
 |---|---|---|
-| AI-Native Architecture | ✅ | All 3 agents in `lib/agents/`; AI is core to login, onboarding, video, quiz, admin |
+| AI-Native Architecture | ✅ | All 3 agents in `lib/agents/`; AI is core to video, quiz, admin, personalization |
 | RAG + Graph-Based Reasoning | ✅ | pgvector cosine over topic-anchored chunks + PostgreSQL recursive CTE on `lesson_topics` → `concepts` → `concept_edges` |
-| Real-World Data | ✅ | Real YouTube videos (not hardcoded), real Bdjobs/Chakri job postings (scraper is post-launch but schema reserved), real Whisper transcripts, real user behavior data |
+| Real-World Data | ✅ | Real YouTube videos + Whisper transcripts + **live Bdjobs/Chakri job postings scraped weekly via Playwright** |
 | Personalization Engine | ✅ | Onboarding goal/level → track recommendation; concept graph traversal → adaptive path with skip/remedial injection |
-| Localization (Bangla + low-bandwidth) | ✅ | UI in EN + বাংলা, subtitles in EN + বাংলা, AI tutor in EN + বাংলা, mobile-first (Lighthouse ≥ 90), 2G detection (post-launch, hook reserved in `lib/responsive.ts`) |
+| Localization (Bangla + low-bandwidth) | ✅ | UI in EN + বাংলা, subtitles in EN + বাংলা, AI tutor in EN + বাংলা, mobile-first (Lighthouse ≥ 90) |
 | Full-Stack Tool Integration | ✅ | Lovable + v0 + Replit (UI prototyping), Cursor + Claude Code (architecture), Supabase + PGVector (knowledge layer) |
 
 ---
@@ -377,7 +381,7 @@ User → /api/chat (no BYOA key) → read admin_config.active_api_key
 | Bengali subtitle quality (auto-score) | ≥ 0.85 | Subtitle Quality Agent (post-launch) |
 | Adaptive path skip accuracy | > 70% | `adaptive_paths` + user feedback |
 | Pro learners | 1,000+ | Stripe |
-| NRB-mode activation | 5% of P3 signups | `users.nrb_mode = true` count |
+| Job signals → curriculum action rate | tracked weekly | admin dashboard |
 | Timestamp-seek accuracy | ±5s on 5 hero videos | Manual measurement |
 
 ---
@@ -387,11 +391,10 @@ User → /api/chat (no BYOA key) → read admin_config.active_api_key
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
 | Live demo API call fails | Medium | High | Pre-cached top-30 Q&A pairs; retry-once with secondary key; soft-fail message |
-| Mobile rebuild breaks existing OAuth | Low | High | OAuth tested EOD-1; rollback to previous commit documented |
-| 2G/low-bandwidth judge device | Medium | Medium | Mobile-first design is the answer; 2G detection post-launch |
+| Mobile rebuild breaks existing OAuth | Low | High | OAuth tested before sleeping each day; rollback commit documented |
+| Playwright blocked by Bdjobs bot detection | Medium | Medium | 20–30 pre-seeded `job_market_signals` rows as fallback; demo still works |
 | Concept graph stays thin | High | Low | Demo one track (Data Science) well; acknowledge expansion post-launch |
-| New tracks (Office, AI-for-Everyone) content thin | Medium | Medium | ~3 lessons per new track, not 6; honest about being v1 of new content |
-| Job-market scraper not running by demo | High | Low | Schema reserved; claim it as "post-launch" feature; rubric point covered by "real data from real YouTube videos" |
+| `npm run build` fails | Medium | Medium | Each stream keeps build passing; fix before merge |
 
 ---
 
@@ -399,10 +402,10 @@ User → /api/chat (no BYOA key) → read admin_config.active_api_key
 
 1. **"Is this just keyword search?"** → "No, it's semantic RAG over topic-anchored embeddings. Each topic in a video is a separate retrieval unit. The similarity threshold is 0.7 to prevent false matches."
 2. **"What if the video doesn't cover the question?"** → "The system says so. No hallucination. RAG grounding enforces this."
-3. **"How do you handle the offline / low-bandwidth case?"** → "Mobile-first design, custom subtitle overlay (no YouTube API polling), text-only fallback is post-launch."
+3. **"Where does the job market data come from?"** → "Scraped weekly from Bdjobs.com and Chakri.com using Playwright. Skills are extracted, counted, and compared week-on-week. Admin reviews before any curriculum change."
 4. **"What about people who can't pay?"** → "Financial aid application is in the schema, 15% of seats reserved, no-shame process."
-5. **"How is this different from Coursera / Udemy?"** → "Bengali-first end-to-end. AI tutor in the video, not a separate chatbot. Topic-level navigation. Built for the phone, not retrofitted."
-6. **"NRB strategy?"** → "15M+ Bangladeshis abroad, $23B remittance economy, highest-paying user segment. NRB mode surfaces the lessons most useful for cross-border life."
+5. **"How is this different from Coursera / Udemy?"** → "Bengali-first end-to-end. AI tutor in the video, not a separate chatbot. Topic-level navigation. Curriculum driven by real BD job market data. Built for the phone, not retrofitted."
+6. **"NRB strategy?"** → "15M+ Bangladeshis abroad, $23B remittance economy. NRB mode (post-launch) surfaces the lessons most useful for cross-border life. Our NRB team member (Hungary) validates the content for diaspora relevance."
 
 ---
 
@@ -413,6 +416,7 @@ User → /api/chat (no BYOA key) → read admin_config.active_api_key
 - Do we charge for institutional seats in BDT or USD?
 - Do we open-source the agent layer?
 - Do we ship a public API for embedding Fixeth in other platforms?
+- Do we move Supabase region to BD when available for data localization compliance?
 
 ---
 
@@ -421,4 +425,4 @@ User → /api/chat (no BYOA key) → read admin_config.active_api_key
 
 **Version log:**
 - 1.0 — Preliminary round (see `plan.md` for original spec)
-- 2.0 — Final round, this document. Adds: rubric coverage map, NRB mode, admin page, topic-extraction personalization, ethical docs.
+- 2.0 — Final round. Adds: rubric coverage map, job market scraper (replaces NRB mode as sprint deliverable), admin page, topic-extraction personalization, ethical docs.
