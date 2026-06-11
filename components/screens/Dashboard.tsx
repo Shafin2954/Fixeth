@@ -17,6 +17,7 @@ import {
 } from "chart.js";
 import { Doughnut, Line } from "react-chartjs-2";
 import ContentTemplates from "@/components/screens/ContentTemplates";
+import { themeVars } from "@/lib/ui/theme-vars";
 import type { DashboardAnalytics, DashboardStats, Module, UserEvaluation } from "@/types/ui";
 import type { JobSignal } from "@/types/ui";
 
@@ -30,6 +31,22 @@ ChartJS.register(
   Legend,
   Filler
 );
+
+const SHIMMER_CSS = `
+  @keyframes fixeth-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+  @keyframes fixeth-breathe {
+    0%, 100% { transform: translateY(0); opacity: 0.7; }
+    50% { transform: translateY(-2px); opacity: 1; }
+  }
+  .fx-shimmer {
+    background: linear-gradient(90deg, var(--t-bg2) 0%, var(--t-bg3) 50%, var(--t-bg2) 100%);
+    background-size: 400% 100%;
+    animation: fixeth-shimmer 1.4s ease-in-out infinite;
+  }
+`;
 
 export default function DashboardScreen({
   T,
@@ -66,15 +83,7 @@ export default function DashboardScreen({
   onMyTracks?: () => void;
   onTrackLibrary?: () => void;
 }) {
-  const [isMobile, setIsMobile] = useState(false);
   const [jobSignals, setJobSignals] = useState<JobSignal[]>([]);
-
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
 
   useEffect(() => {
     let active = true;
@@ -98,109 +107,74 @@ export default function DashboardScreen({
   }, []);
 
   if (loading) {
-    const shimmer = `linear-gradient(90deg, ${T.bg2} 0%, ${T.bg3} 50%, ${T.bg2} 100%)`;
-
     return (
-      <div style={{ flex: 1, overflowY: "auto", background: T.bg0 }}>
-        <style>{`
-          @keyframes fixeth-shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-          }
-          @keyframes fixeth-breathe {
-            0%, 100% { transform: translateY(0); opacity: 0.7; }
-            50% { transform: translateY(-2px); opacity: 1; }
-          }
-        `}</style>
+      <div style={themeVars(T)} className="flex-1 overflow-y-auto bg-[var(--t-bg0)]">
+        <style>{SHIMMER_CSS}</style>
 
-        <div style={{ maxWidth: 1040, margin: "0 auto", padding: "20px 16px 40px" }}>
+        <div className="mx-auto max-w-[1040px] px-4 pb-10 pt-5">
           <div
-            style={{
-              background: `linear-gradient(135deg, ${T.bg2} 0%, ${T.accent}0d 100%)`,
-              border: `1px solid ${T.border}`,
-              borderRadius: 14,
-              padding: 24,
-              marginBottom: 20,
-              boxShadow: T.shadow,
-              overflow: "hidden"
-            }}
+            style={{ background: `linear-gradient(135deg, ${T.bg2} 0%, ${T.accent}0d 100%)` }}
+            className="mb-5 overflow-hidden rounded-[14px] border border-[var(--t-border)] p-6 shadow-[var(--t-shadow)]"
           >
-            <div style={{ display: "grid", gap: 18, gridTemplateColumns: "minmax(0, 1.6fr) minmax(280px, 0.9fr)" }}>
+            <div className="grid gap-[18px] lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,0.9fr)]">
               <div>
-                <div style={{ display: "grid", gap: 10, maxWidth: 420 }}>
-                  <div style={{ height: 18, width: "42%", borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
-                  <div style={{ height: 42, width: "78%", borderRadius: 12, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
-                  <div style={{ height: 14, width: "64%", borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
-                  <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                <div className="grid max-w-[420px] gap-2.5">
+                  <div className="fx-shimmer h-[18px] w-[42%] rounded-full" />
+                  <div className="fx-shimmer h-[42px] w-[78%] rounded-xl" />
+                  <div className="fx-shimmer h-3.5 w-[64%] rounded-full" />
+                  <div className="mt-2 flex gap-1.5">
                     {Array.from({ length: 7 }).map((_, index) => (
                       <div
                         key={index}
-                        style={{
-                          width: isMobile ? 36 : 30,
-                          height: isMobile ? 36 : 30,
-                          borderRadius: 8,
-                          background: shimmer,
-                          backgroundSize: "400% 100%",
-                          animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.06}s`
-                        }}
+                        className="fx-shimmer size-9 rounded-lg lg:size-[30px]"
+                        style={{ animationDelay: `${index * 0.06}s` }}
                       />
                     ))}
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", justifyContent: "center" }}>
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                  <div style={{ width: 138, height: 42, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
-                  <div style={{ width: 112, height: 42, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite 0.08s" }} />
-                  <div style={{ width: 112, height: 42, borderRadius: 10, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite 0.16s" }} />
+              <div className="flex flex-col justify-center gap-2 lg:items-end">
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <div className="fx-shimmer h-[42px] w-[138px] rounded-[10px]" />
+                  <div className="fx-shimmer h-[42px] w-28 rounded-[10px]" style={{ animationDelay: "0.08s" }} />
+                  <div className="fx-shimmer h-[42px] w-28 rounded-[10px]" style={{ animationDelay: "0.16s" }} />
                 </div>
-                <div style={{ width: 170, height: 12, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite 0.24s" }} />
+                <div className="fx-shimmer h-3 w-[170px] rounded-full" style={{ animationDelay: "0.24s" }} />
               </div>
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 20 }}>
+          <div className="mb-5 grid grid-cols-2 gap-3 md:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
               <div
                 key={index}
-                style={{
-                  background: T.bg1,
-                  border: `1px solid ${T.border}`,
-                  borderRadius: 10,
-                  padding: "14px 16px",
-                  boxShadow: T.shadow,
-                  minHeight: 92,
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  gap: 14,
-                  animation: "fixeth-breathe 1.9s ease-in-out infinite"
-                }}
+                className="flex min-h-[92px] items-center justify-between gap-3.5 rounded-[10px] border border-[var(--t-border)] bg-[var(--t-bg1)] px-4 py-3.5 shadow-[var(--t-shadow)]"
+                style={{ animation: "fixeth-breathe 1.9s ease-in-out infinite" }}
               >
-                <div style={{ flex: 1 }}>
-                  <div style={{ width: "58%", height: 10, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.06}s` }} />
-                  <div style={{ width: "42%", height: 22, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", marginTop: 10, animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.06 + 0.05}s` }} />
-                  <div style={{ width: "72%", height: 9, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", marginTop: 10, animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.06 + 0.1}s` }} />
+                <div className="flex-1">
+                  <div className="fx-shimmer h-2.5 w-[58%] rounded-full" style={{ animationDelay: `${index * 0.06}s` }} />
+                  <div className="fx-shimmer mt-2.5 h-[22px] w-[42%] rounded-lg" style={{ animationDelay: `${index * 0.06 + 0.05}s` }} />
+                  <div className="fx-shimmer mt-2.5 h-[9px] w-[72%] rounded-full" style={{ animationDelay: `${index * 0.06 + 0.1}s` }} />
                 </div>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05}s` }} />
+                <div className="fx-shimmer size-9 rounded-lg" style={{ animationDelay: `${index * 0.05}s` }} />
               </div>
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 20 }}>
+          <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2">
             {[0, 1].map((section) => (
-              <div key={section} style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
-                <div style={{ width: "38%", height: 13, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${section * 0.08}s` }} />
-                <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
+              <div key={section} className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] p-[18px] shadow-[var(--t-shadow)]">
+                <div className="fx-shimmer h-[13px] w-[38%] rounded-full" style={{ animationDelay: `${section * 0.08}s` }} />
+                <div className="mt-4 grid gap-3">
                   {Array.from({ length: 3 }).map((_, index) => (
-                    <div key={index} style={{ display: "grid", gap: 8 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                        <div style={{ width: "52%", height: 11, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05}s` }} />
-                        <div style={{ width: 36, height: 11, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05 + 0.04}s` }} />
+                    <div key={index} className="grid gap-2">
+                      <div className="flex justify-between gap-3">
+                        <div className="fx-shimmer h-[11px] w-[52%] rounded-full" style={{ animationDelay: `${index * 0.05}s` }} />
+                        <div className="fx-shimmer h-[11px] w-9 rounded-full" style={{ animationDelay: `${index * 0.05 + 0.04}s` }} />
                       </div>
-                      <div style={{ height: 4, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05 + 0.08}s` }} />
-                      <div style={{ width: "40%", height: 9, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05 + 0.12}s` }} />
+                      <div className="fx-shimmer h-1 rounded-full" style={{ animationDelay: `${index * 0.05 + 0.08}s` }} />
+                      <div className="fx-shimmer h-[9px] w-[40%] rounded-full" style={{ animationDelay: `${index * 0.05 + 0.12}s` }} />
                     </div>
                   ))}
                 </div>
@@ -208,25 +182,25 @@ export default function DashboardScreen({
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
-            <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
-              <div style={{ width: "36%", height: 13, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: 12 }}>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.2fr_1fr]">
+            <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] p-[18px] shadow-[var(--t-shadow)]">
+              <div className="fx-shimmer h-[13px] w-[36%] rounded-full" />
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 {Array.from({ length: 6 }).map((_, index) => (
-                  <div key={index} style={{ height: 26, borderRadius: 8, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.04}s` }} />
+                  <div key={index} className="fx-shimmer h-[26px] rounded-lg" style={{ animationDelay: `${index * 0.04}s` }} />
                 ))}
               </div>
             </div>
 
-            <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
-              <div style={{ width: "42%", height: 13, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: "fixeth-shimmer 1.4s ease-in-out infinite" }} />
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 14 }}>
+            <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] p-[18px] shadow-[var(--t-shadow)]">
+              <div className="fx-shimmer h-[13px] w-[42%] rounded-full" />
+              <div className="mt-3.5 flex flex-col gap-2.5">
                 {Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <div style={{ width: 24, height: 24, borderRadius: 6, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.05}s` }} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ width: `${70 - index * 6}%`, height: 11, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.04 + 0.03}s` }} />
-                      <div style={{ width: `${50 - index * 4}%`, height: 9, borderRadius: 999, background: shimmer, backgroundSize: "400% 100%", marginTop: 6, animation: `fixeth-shimmer 1.4s ease-in-out infinite ${index * 0.04 + 0.08}s` }} />
+                  <div key={index} className="flex items-start gap-2.5">
+                    <div className="fx-shimmer size-6 rounded-md" style={{ animationDelay: `${index * 0.05}s` }} />
+                    <div className="flex-1">
+                      <div className="fx-shimmer h-[11px] rounded-full" style={{ width: `${70 - index * 6}%`, animationDelay: `${index * 0.04 + 0.03}s` }} />
+                      <div className="fx-shimmer mt-1.5 h-[9px] rounded-full" style={{ width: `${50 - index * 4}%`, animationDelay: `${index * 0.04 + 0.08}s` }} />
                     </div>
                   </div>
                 ))}
@@ -289,7 +263,7 @@ export default function DashboardScreen({
   }));
   const trackRows = [
     {
-      name: lang === "bn" ? "ডেটা সায়েন্স ট্র্যাক" : "Data Science & AI",
+      name: lang === "bn" ? "ডেটা সায়েন্স ট্র্যাক" : "Data Science & AI",
       pct:
         currentModule?.id === modules[0]?.id
           ? currentModulePct
@@ -393,30 +367,19 @@ export default function DashboardScreen({
   };
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", background: T.bg0 }}>
-      <div style={{ maxWidth: 1040, margin: "0 auto", padding: "20px 16px 40px" }}>
-        
+    <div style={themeVars(T)} className="flex-1 overflow-y-auto bg-[var(--t-bg0)]">
+      <div className="mx-auto max-w-[1040px] px-4 pb-10 pt-5">
+
         {/* Personalized Welcome Banner */}
         <div
-          style={{
-            background: `linear-gradient(135deg, ${T.bg2} 0%, ${T.accent}0d 100%)`,
-            border: `1px solid ${T.border}`,
-            borderRadius: 14,
-            padding: "24px",
-            marginBottom: 20,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            flexWrap: "wrap",
-            gap: 16,
-            boxShadow: T.shadow
-          }}
+          style={{ background: `linear-gradient(135deg, ${T.bg2} 0%, ${T.accent}0d 100%)` }}
+          className="mb-5 flex flex-col gap-4 rounded-[14px] border border-[var(--t-border)] p-5 shadow-[var(--t-shadow)] sm:p-6 lg:flex-row lg:items-center lg:justify-between"
         >
           <div>
-            <h2 style={{ fontSize: isMobile ? 24 : 21, fontWeight: 900, color: T.txt0, margin: "0 0 6px" }}>
+            <h2 className="mb-1.5 text-2xl font-black text-[var(--t-txt0)] lg:text-[21px]">
               {t.greeting}, {user?.name ?? (lang === "bn" ? "বন্ধু" : "Learner")} 👋
             </h2>
-            <p style={{ color: T.txt1, fontSize: isMobile ? 15 : 13, margin: "0 0 14px", lineHeight: 1.4 }}>
+            <p className="mb-3.5 text-[15px] leading-snug text-[var(--t-txt1)] lg:text-[13px]">
               {loading
                 ? lang === "bn"
                   ? "ডেটা লোড হচ্ছে..."
@@ -426,22 +389,15 @@ export default function DashboardScreen({
                   : `${dashboardStats?.trackTitle || "Your track"} — ${enrollmentProgress}% complete. ${displayStreak}-day streak.`}
             </p>
             {/* Week tracker balls */}
-            <div style={{ display: "flex", gap: 6 }}>
+            <div className="flex gap-1.5">
               {weekBadges.map((day) => (
                 <div
                   key={day.key}
-                  style={{
-                    width: isMobile ? 36 : 30,
-                    height: isMobile ? 36 : 30,
-                    borderRadius: 8,
-                    background: day.completedLessons > 0 ? T.accent : T.bg4,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: isMobile ? 11 : 9.5,
-                    fontWeight: 800,
-                    color: day.completedLessons > 0 ? "#000" : T.txt2
-                  }}
+                  className={`flex size-9 items-center justify-center rounded-lg text-[11px] font-extrabold lg:size-[30px] lg:text-[9.5px] ${
+                    day.completedLessons > 0
+                      ? "bg-[var(--t-accent)] text-black"
+                      : "bg-[var(--t-bg4)] text-[var(--t-txt2)]"
+                  }`}
                 >
                   {day.label}
                 </div>
@@ -449,40 +405,18 @@ export default function DashboardScreen({
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "flex-end" }}>
+          <div className="flex flex-col gap-2 lg:items-end">
+            <div className="flex flex-wrap gap-2 lg:justify-end">
               <button
                 onClick={onContinue}
-                style={{
-                  background: T.accent,
-                  border: "none",
-                  borderRadius: 8,
-                  padding: isMobile ? "12px 20px" : "10px 18px",
-                  fontWeight: 800,
-                  fontSize: isMobile ? 14 : 12.5,
-                  color: "#000",
-                  cursor: "pointer",
-                  boxShadow: `0 4px 14px ${T.accent}2d`
-                }}
+                className="min-h-11 cursor-pointer rounded-lg border-none bg-[var(--t-accent)] px-5 py-3 text-sm font-extrabold text-black shadow-[0_4px_14px_var(--t-accent-dim)] lg:px-[18px] lg:py-2.5 lg:text-[12.5px]"
               >
                 {t.continueBtn}
               </button>
               {onMyTracks && (
                 <Link
                   href="/my-tracks"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: isMobile ? "12px 14px" : "10px 14px",
-                    borderRadius: 8,
-                    background: T.bg3,
-                    border: `1px solid ${T.border}`,
-                    color: T.txt0,
-                    fontWeight: 700,
-                    fontSize: isMobile ? 13 : 11.5,
-                    textDecoration: "none"
-                  }}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg3)] px-3.5 py-3 text-[13px] font-bold text-[var(--t-txt0)] no-underline lg:py-2.5 lg:text-[11.5px]"
                 >
                   <List size={16} />
                   {lang === "bn" ? "আমার ট্র্যাক" : "My tracks"}
@@ -491,27 +425,15 @@ export default function DashboardScreen({
               {onTrackLibrary && (
                 <Link
                   href="/tracks"
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: isMobile ? "12px 14px" : "10px 14px",
-                    borderRadius: 8,
-                    background: T.bg3,
-                    border: `1px solid ${T.border}`,
-                    color: T.txt0,
-                    fontWeight: 700,
-                    fontSize: isMobile ? 13 : 11.5,
-                    textDecoration: "none"
-                  }}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg3)] px-3.5 py-3 text-[13px] font-bold text-[var(--t-txt0)] no-underline lg:py-2.5 lg:text-[11.5px]"
                 >
                   <Library size={16} />
                   {lang === "bn" ? "লাইব্রেরি" : "Library"}
                 </Link>
               )}
             </div>
-            <span style={{ fontSize: isMobile ? 12 : 10, color: T.txt1 }}>
-              Syllabus Progress · <strong style={{ color: T.accent }}>{enrollmentProgress}%</strong>
+            <span className="text-xs text-[var(--t-txt1)] lg:text-[10px]">
+              Syllabus Progress · <strong className="text-[var(--t-accent)]">{enrollmentProgress}%</strong>
             </span>
           </div>
         </div>
@@ -520,19 +442,10 @@ export default function DashboardScreen({
         {evaluation?.skipped && (
           <div
             style={{
-              background: `linear-gradient(135deg, #FF8A3D0d 0%, #FF8A3D1a 100%)`,
-              border: `2px solid #FF8A3D`,
-              borderRadius: 14,
-              padding: "20px 24px",
-              marginBottom: 20,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 16,
-              boxShadow: `0 4px 14px #FF8A3D15`,
+              background: "linear-gradient(135deg, #FF8A3D0d 0%, #FF8A3D1a 100%)",
               animation: "slideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"
             }}
+            className="mb-5 flex flex-col gap-4 rounded-[14px] border-2 border-[#FF8A3D] px-5 py-5 shadow-[0_4px_14px_#FF8A3D15] sm:flex-row sm:items-center sm:justify-between sm:px-6"
           >
             <style>{`
               @keyframes slideDown {
@@ -546,14 +459,14 @@ export default function DashboardScreen({
                 }
               }
             `}</style>
-            
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <AlertCircle size={24} color="#FF8A3D" />
+
+            <div className="flex items-center gap-3">
+              <AlertCircle size={24} color="#FF8A3D" className="shrink-0" />
               <div>
-                <h3 style={{ fontSize: isMobile ? 17 : 15, fontWeight: 900, color: T.txt0, margin: "0 0 4px" }}>
+                <h3 className="mb-1 text-[17px] font-black text-[var(--t-txt0)] lg:text-[15px]">
                   {lang === "bn" ? "আপনার মূল্যায়ন এখনো বাকি" : "Assessment Pending"}
                 </h3>
-                <p style={{ color: T.txt1, fontSize: isMobile ? 14 : 13, margin: 0, lineHeight: 1.3 }}>
+                <p className="m-0 text-sm leading-tight text-[var(--t-txt1)] lg:text-[13px]">
                   {lang === "bn"
                     ? "আপনার দক্ষতা পরিমাপ করুন এবং ব্যক্তিগতকৃত শিক্ষা পথ পান।"
                     : "Complete your assessment to unlock personalized learning recommendations."}
@@ -563,30 +476,7 @@ export default function DashboardScreen({
 
             <button
               onClick={onStartAssessment}
-              style={{
-                background: "#FF8A3D",
-                border: "none",
-                borderRadius: 8,
-                padding: "10px 16px",
-                fontWeight: 800,
-                fontSize: 13,
-                color: "#fff",
-                cursor: "pointer",
-                boxShadow: `0 4px 12px #FF8A3D3d`,
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                whiteSpace: "nowrap",
-                transition: "all 0.2s"
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = `0 6px 16px #FF8A3D4d`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = `0 4px 12px #FF8A3D3d`;
-              }}
+              className="flex min-h-11 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border-none bg-[#FF8A3D] px-4 py-2.5 text-[13px] font-extrabold text-white shadow-[0_4px_12px_#FF8A3D3d] transition-all hover:-translate-y-0.5 hover:shadow-[0_6px_16px_#FF8A3D4d]"
             >
               {lang === "bn" ? "এখনই মূল্যায়ন করুন" : "Take Assessment"}
               <ArrowRight size={16} />
@@ -596,7 +486,7 @@ export default function DashboardScreen({
 
 
         {/* Dynamic Metric Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[
             { icon: BookOpen, label: t.lessonsCompleted, value: `${completedLessons}/${totalLessons || 0}`, color: T.accent, note: lang === "bn" ? "কোর্স-স্তরের অগ্রগতি" : "Course-level progress" },
             { icon: Star, label: t.quizAvg, value: assessmentLabel, color: T.amber, note: evaluation?.skipped ? (lang === "bn" ? "ডায়াগনস্টিক বাকি" : "Diagnostic pending") : (lang === "bn" ? "সর্বশেষ স্কোর" : "Latest score") },
@@ -605,32 +495,16 @@ export default function DashboardScreen({
           ].map((card, idx) => (
             <div
               key={idx}
-              style={{
-                background: T.bg1,
-                border: `1px solid ${T.border}`,
-                borderRadius: 10,
-                padding: "14px 16px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                boxShadow: T.shadow
-              }}
+              className="flex items-center justify-between rounded-[10px] border border-[var(--t-border)] bg-[var(--t-bg1)] px-4 py-3.5 shadow-[var(--t-shadow)]"
             >
-              <div>
-                <div style={{ fontSize: 10, color: T.txt1, fontWeight: 700, textTransform: "uppercase" }}>{card.label}</div>
-                <div style={{ fontSize: 18, fontWeight: 900, color: T.txt0, marginTop: 4 }}>{card.value}</div>
-                <div style={{ fontSize: 10.5, color: T.txt1, marginTop: 4, lineHeight: 1.4 }}>{card.note}</div>
+              <div className="min-w-0">
+                <div className="truncate text-[10px] font-bold uppercase text-[var(--t-txt1)]">{card.label}</div>
+                <div className="mt-1 text-lg font-black text-[var(--t-txt0)]">{card.value}</div>
+                <div className="mt-1 text-[10.5px] leading-snug text-[var(--t-txt1)]">{card.note}</div>
               </div>
               <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  background: `${card.color}20`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center"
-                }}
+                style={{ background: `${card.color}20` }}
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg"
               >
                 <card.icon size={18} color={card.color} strokeWidth={2} />
               </div>
@@ -639,36 +513,39 @@ export default function DashboardScreen({
         </div>
 
         {/* Progress & Target Section */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, marginBottom: 20 }}>
-          
+        <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+
           {/* My tracks progress */}
-          <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
-            <h3 style={{ fontSize: 13.5, fontWeight: 800, color: T.txt0, margin: "0 0 14px" }}>
+          <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] p-[18px] shadow-[var(--t-shadow)]">
+            <h3 className="mb-3.5 text-[13.5px] font-extrabold text-[var(--t-txt0)]">
               {t.activeTrack}
             </h3>
             {trackRows.map((track, i) => (
-              <div key={i} style={{ borderBottom: i < 1 ? `1px solid ${T.border}` : "none", paddingBottom: i < 1 ? 14 : 0, paddingTop: i > 0 ? 14 : 0 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.txt0, marginBottom: 4, fontWeight: 700 }}>
+              <div
+                key={i}
+                className={i < 1 ? "border-b border-[var(--t-border)] pb-3.5" : "pt-3.5"}
+              >
+                <div className="mb-1 flex justify-between text-xs font-bold text-[var(--t-txt0)]">
                   <span>{track.name}</span>
-                  <span style={{ color: T.accent }}>{track.pct}%</span>
+                  <span className="text-[var(--t-accent)]">{track.pct}%</span>
                 </div>
                 {/* Progress bar line */}
-                <div style={{ height: 4, background: T.bg4, borderRadius: 2, marginBottom: 4 }}>
-                  <div style={{ width: `${track.pct}%`, height: "100%", background: T.accent, borderRadius: 2 }} />
+                <div className="mb-1 h-1 rounded-sm bg-[var(--t-bg4)]">
+                  <div className="h-full rounded-sm bg-[var(--t-accent)]" style={{ width: `${track.pct}%` }} />
                 </div>
-                <span style={{ fontSize: 10, color: T.txt1 }}>{track.label}</span>
+                <span className="text-[10px] text-[var(--t-txt1)]">{track.label}</span>
               </div>
             ))}
           </div>
 
           {/* Weekly progress targets ring */}
-          <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <h3 style={{ fontSize: 13.5, fontWeight: 800, color: T.txt0, alignSelf: "flex-start", margin: "0 0 12px" }}>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] p-[18px] shadow-[var(--t-shadow)]">
+            <h3 className="mb-3 self-start text-[13.5px] font-extrabold text-[var(--t-txt0)]">
               {t.weeklyGoal}
             </h3>
-            
-            <div style={{ position: "relative", width: 80, height: 80, marginBottom: 10 }}>
-              <svg width="80" height="80" style={{ transform: "rotate(-90deg)" }}>
+
+            <div className="relative mb-2.5 size-20">
+              <svg width="80" height="80" className="-rotate-90">
                 <circle cx="40" cy="40" r="34" fill="none" stroke={T.bg4} strokeWidth="6" />
                 <circle
                   cx="40"
@@ -682,41 +559,42 @@ export default function DashboardScreen({
                   strokeLinecap="round"
                 />
               </svg>
-              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ fontSize: 16, fontWeight: 900, color: T.txt0 }}>{activityProgress}</span>
-                <span style={{ fontSize: 8, color: T.txt1 }}>Classes Done</span>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-base font-black text-[var(--t-txt0)]">{activityProgress}</span>
+                <span className="text-[8px] text-[var(--t-txt1)]">Classes Done</span>
               </div>
             </div>
-            <span style={{ fontSize: 11, color: T.txt1 }}>{lang === "bn" ? "সাপ্তাহিক লক্ষ্যে এগিয়ে যান!" : "Keep moving toward the weekly goal!"}</span>
+            <span className="text-[11px] text-[var(--t-txt1)]">{lang === "bn" ? "সাপ্তাহিক লক্ষ্যে এগিয়ে যান!" : "Keep moving toward the weekly goal!"}</span>
           </div>
         </div>
 
         {/* Learning analytics */}
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.5fr) minmax(300px, 1fr)", gap: 16, marginBottom: 20 }}>
-          <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <h3 style={{ fontSize: 13.5, fontWeight: 800, color: T.txt0, margin: 0 }}>
+        <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1.5fr)_minmax(300px,1fr)]">
+          <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] p-[18px] shadow-[var(--t-shadow)]">
+            <div className="mb-3.5 flex items-center justify-between">
+              <h3 className="m-0 text-[13.5px] font-extrabold text-[var(--t-txt0)]">
                 {t.learningTrend}
               </h3>
-              <span style={{ fontSize: 10, color: T.txt1 }}>{t.activityLastDays}</span>
+              <span className="text-[10px] text-[var(--t-txt1)]">{t.activityLastDays}</span>
             </div>
-            <div style={{ height: 220 }}>
+            <div className="h-[180px] md:h-[220px]">
               <Line data={trendChartData} options={trendChartOptions} />
             </div>
           </div>
 
-          <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <h3 style={{ fontSize: 13.5, fontWeight: 800, color: T.txt0, margin: 0 }}>
+          {/* Module mix is secondary — hide on small screens to keep mobile lean */}
+          <div className="hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] p-[18px] shadow-[var(--t-shadow)] md:block">
+            <div className="mb-3.5 flex items-center justify-between">
+              <h3 className="m-0 text-[13.5px] font-extrabold text-[var(--t-txt0)]">
                 {t.moduleDistribution}
               </h3>
-              <span style={{ fontSize: 10, color: T.accent, fontWeight: 700 }}>{totalCompletionsInRange}</span>
+              <span className="text-[10px] font-bold text-[var(--t-accent)]">{totalCompletionsInRange}</span>
             </div>
-            <div style={{ height: 220 }}>
+            <div className="h-[220px]">
               {moduleSeries.length > 0 ? (
                 <Doughnut data={moduleChartData} options={moduleChartOptions} />
               ) : (
-                <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: T.txt2, fontSize: 12 }}>
+                <div className="flex h-full items-center justify-center text-xs text-[var(--t-txt2)]">
                   {t.noActivityYet}
                 </div>
               )}
@@ -724,24 +602,24 @@ export default function DashboardScreen({
           </div>
         </div>
 
-        <div style={{ marginBottom: 20 }}>
-          <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <h3 style={{ fontSize: 13.5, fontWeight: 800, color: T.txt0, margin: 0 }}>{t.jobReadiness}</h3>
-              <Link href="/jobs" style={{ color: T.accent, fontSize: 11, fontWeight: 700, textDecoration: "none" }}>
+        <div className="mb-5">
+          <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] p-[18px] shadow-[var(--t-shadow)]">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="m-0 text-[13.5px] font-extrabold text-[var(--t-txt0)]">{t.jobReadiness}</h3>
+              <Link href="/jobs" className="text-[11px] font-bold text-[var(--t-accent)] no-underline">
                 {t.viewJobs}
               </Link>
             </div>
             {jobSignals.length === 0 ? (
-              <div style={{ fontSize: 11.5, color: T.txt1 }}>
+              <div className="text-[11.5px] text-[var(--t-txt1)]">
                 {lang === "bn" ? "লাইভ জব সিগন্যাল আসছে..." : "Live job signals are loading..."}
               </div>
             ) : (
-              <div style={{ display: "grid", gap: 8 }}>
+              <div className="grid gap-2">
                 {jobSignals.map((signal) => (
-                  <div key={`${signal.skill}-${signal.source}`} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ fontSize: 11.5, color: T.txt0 }}>{signal.skill}</span>
-                    <span style={{ fontSize: 10.5, color: T.txt1 }}>
+                  <div key={`${signal.skill}-${signal.source}`} className="flex justify-between gap-2">
+                    <span className="text-[11.5px] text-[var(--t-txt0)]">{signal.skill}</span>
+                    <span className="text-[10.5px] text-[var(--t-txt1)]">
                       {signal.mentionCount} · {signal.weekChangePct > 0 ? "+" : ""}
                       {signal.weekChangePct}%
                     </span>
@@ -752,40 +630,28 @@ export default function DashboardScreen({
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
-          <div style={{ background: T.bg1, border: `1px solid ${T.border}`, borderRadius: 12, padding: 18, boxShadow: T.shadow }}>
-            <h3 style={{ fontSize: 13.5, fontWeight: 800, color: T.txt0, margin: "0 0 14px" }}>
+        <div className="grid grid-cols-1 gap-4">
+          <div className="rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] p-[18px] shadow-[var(--t-shadow)]">
+            <h3 className="mb-3.5 text-[13.5px] font-extrabold text-[var(--t-txt0)]">
               {t.recentCompletions}
             </h3>
             {recentCompletions.length === 0 ? (
-              <div style={{ color: T.txt2, fontSize: 12 }}>{t.noActivityYet}</div>
+              <div className="text-xs text-[var(--t-txt2)]">{t.noActivityYet}</div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div className="flex flex-col gap-2.5">
                 {recentCompletions.map((event) => (
-                  <div key={`${event.lessonId}-${event.completedAt}`} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <div
-                      style={{
-                        width: 24,
-                        height: 24,
-                        borderRadius: 6,
-                        background: `${T.accent}20`,
-                        color: T.accent,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0
-                      }}
-                    >
+                  <div key={`${event.lessonId}-${event.completedAt}`} className="flex items-start gap-2.5">
+                    <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-[var(--t-accent-dim)] text-[var(--t-accent)]">
                       <CheckCircle2 size={14} strokeWidth={2.5} />
                     </div>
                     <div>
-                      <div style={{ fontSize: 11.5, color: T.txt0, fontWeight: 700 }}>
+                      <div className="text-[11.5px] font-bold text-[var(--t-txt0)]">
                         {event.lessonTitle}
                       </div>
-                      <div style={{ fontSize: 10, color: T.txt1, marginTop: 2 }}>
+                      <div className="mt-0.5 text-[10px] text-[var(--t-txt1)]">
                         {event.moduleTitle}
                       </div>
-                      <div style={{ fontSize: 9.5, color: T.txt2, marginTop: 2 }}>
+                      <div className="mt-0.5 text-[9.5px] text-[var(--t-txt2)]">
                         {new Date(event.completedAt).toLocaleString(
                           lang === "bn" ? "bn-BD" : "en-US",
                           {

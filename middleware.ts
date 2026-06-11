@@ -32,8 +32,12 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = path === "/login" || path === "/signup";
   const isAuthCallback = path.startsWith("/auth/callback");
   const isPublicRoute =
-    path.startsWith("/profile/") || path.startsWith("/verify/");
+    path.startsWith("/profile/") ||
+    path.startsWith("/verify/") ||
+    path === "/pricing" ||
+    path === "/about";
   const isOnboarding = path === "/onboarding";
+  const isLandingRoot = path === "/";
   // App routes that require auth — excludes /onboarding (handled separately)
   const isProtectedApp =
     !isAuthRoute &&
@@ -49,7 +53,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (isAuthRoute || isProtectedApp || isOnboarding)) {
+  if (user && (isAuthRoute || isProtectedApp || isOnboarding || isLandingRoot)) {
     const { data: profile } = await supabase
       .from("users")
       .select("onboarding_complete")
@@ -58,7 +62,8 @@ export async function middleware(request: NextRequest) {
 
     const onboardingComplete = profile?.onboarding_complete === true;
 
-    if (user && isAuthRoute) {
+    // Signed-in visitors skip the marketing root and auth pages.
+    if (user && (isAuthRoute || isLandingRoot)) {
       const url = request.nextUrl.clone();
       url.pathname = onboardingComplete ? "/dashboard" : "/onboarding";
       return NextResponse.redirect(url);

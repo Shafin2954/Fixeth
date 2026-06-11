@@ -7,6 +7,7 @@ import { ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import type { Track } from "@/types";
 import { enrollInTrackClient } from "@/lib/supabase/queries/enroll-client";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
+import { themeVars } from "@/lib/ui/theme-vars";
 import type { UiTier } from "@/lib/tier/config";
 import LoadingCanvas from "@/components/ui/loading-canvas";
 
@@ -94,29 +95,20 @@ export default function TrackLibraryScreen({
   const comingSoon = tracks.filter((t) => !t.published);
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", background: T.bg0 }}>
-      <div style={{ maxWidth: 1040, margin: "0 auto", padding: "24px 16px 48px" }}>
+    <div style={themeVars(T as any)} className="flex-1 overflow-y-auto bg-[var(--t-bg0)]">
+      <div className="mx-auto max-w-[1040px] px-4 pb-12 pt-6">
         <Link
           href="/dashboard"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            color: T.txt1,
-            fontSize: 12,
-            fontWeight: 600,
-            textDecoration: "none",
-            marginBottom: 16
-          }}
+          className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-xs font-semibold text-[var(--t-txt1)] no-underline"
         >
           <ArrowLeft size={14} />
           {lang === "bn" ? "ড্যাশবোর্ড" : "Dashboard"}
         </Link>
 
-        <h1 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 900, color: T.txt0 }}>
+        <h1 className="mb-2 text-2xl font-black text-[var(--t-txt0)]">
           {lang === "bn" ? "ট্র্যাক লাইব্রেরি" : "Track library"}
         </h1>
-        <p style={{ margin: "0 0 20px", fontSize: 13, color: T.txt1, maxWidth: 560 }}>
+        <p className="mb-5 max-w-[560px] text-[13px] text-[var(--t-txt1)]">
           {lang === "bn"
             ? "উপলব্ধ সব কোর্স দেখুন এবং যেকোনো প্রকাশিত ট্র্যাকে ভর্তি হন।"
             : "Browse all available courses and enroll in any published track."}
@@ -124,41 +116,29 @@ export default function TrackLibraryScreen({
 
         {message && (
           <div
-            style={{
-              marginBottom: 16,
-              padding: "10px 14px",
-              borderRadius: 8,
-              fontSize: 12,
-              fontWeight: 600,
-              background: message.type === "ok" ? `${T.accent}22` : "#FF5B5B22",
-              border: `1px solid ${message.type === "ok" ? T.accent : "#FF5B5B"}`,
-              color: message.type === "ok" ? T.accent : "#FF5B5B"
-            }}
+            className={`mb-4 rounded-lg border px-3.5 py-2.5 text-xs font-semibold ${
+              message.type === "ok"
+                ? "border-[var(--t-accent)] bg-[var(--t-accent)]/15 text-[var(--t-accent)]"
+                : "border-[#FF5B5B] bg-[#FF5B5B22] text-[#FF5B5B]"
+            }`}
           >
             {message.text}
           </div>
         )}
 
-        <section style={{ marginBottom: 32 }}>
-          <h2 style={{ fontSize: 14, fontWeight: 800, color: T.txt0, marginBottom: 12 }}>
+        <section className="mb-8">
+          <h2 className="mb-3 text-sm font-extrabold text-[var(--t-txt0)]">
             {lang === "bn" ? "ভর্তির জন্য উন্মুক্ত" : "Open for enrollment"} ({published.length})
           </h2>
           {published.length === 0 ? (
-            <p style={{ color: T.txt1, fontSize: 13 }}>
+            <p className="text-[13px] text-[var(--t-txt1)]">
               {lang === "bn" ? "কোনো প্রকাশিত ট্র্যাক নেই।" : "No published tracks yet."}
             </p>
           ) : (
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                gap: 14
-              }}
-            >
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
               {published.map((track) => (
                 <TrackCard
                   key={track.id}
-                  T={T}
                   lang={lang}
                   track={track}
                   isEnrolled={enrolledTrackIds.has(track.id)}
@@ -172,21 +152,13 @@ export default function TrackLibraryScreen({
 
         {comingSoon.length > 0 && (
           <section>
-            <h2 style={{ fontSize: 14, fontWeight: 800, color: T.txt1, marginBottom: 12 }}>
+            <h2 className="mb-3 text-sm font-extrabold text-[var(--t-txt1)]">
               {lang === "bn" ? "শীঘ্রই আসছে" : "Coming soon"} ({comingSoon.length})
             </h2>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-                gap: 14,
-                opacity: 0.75
-              }}
-            >
+            <div className="grid grid-cols-1 gap-3.5 opacity-75 sm:grid-cols-[repeat(auto-fill,minmax(280px,1fr))]">
               {comingSoon.map((track) => (
                 <TrackCard
                   key={track.id}
-                  T={T}
                   lang={lang}
                   track={track}
                   isEnrolled={enrolledTrackIds.has(track.id)}
@@ -203,7 +175,6 @@ export default function TrackLibraryScreen({
 }
 
 function TrackCard({
-  T,
   lang,
   track,
   isEnrolled,
@@ -211,7 +182,6 @@ function TrackCard({
   onEnroll,
   disabled
 }: {
-  T: Record<string, string>;
   lang: string;
   track: Track;
   isEnrolled: boolean;
@@ -233,78 +203,35 @@ function TrackCard({
   const skillsLabel = (track.skills || []).slice(0, 3).join(" · ");
 
   return (
-    <article
-      style={{
-        background: T.bg1,
-        border: `1px solid ${T.border}`,
-        borderRadius: 12,
-        padding: 18,
-        boxShadow: T.shadow,
-        display: "flex",
-        flexDirection: "column",
-        gap: 10
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <span style={{ fontSize: 28 }}>{icon}</span>
-        <span
-          style={{
-            fontSize: 10,
-            fontWeight: 800,
-            color: T.accent,
-            background: (T as { accentDim?: string }).accentDim ?? T.bg3,
-            padding: "3px 8px",
-            borderRadius: 6
-          }}
-        >
+    <article className="flex flex-col gap-2.5 rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] p-[18px] shadow-[var(--t-shadow)]">
+      <div className="flex items-start justify-between">
+        <span className="text-[28px]">{icon}</span>
+        <span className="rounded-md bg-[var(--t-accent-dim)] px-2 py-[3px] text-[10px] font-extrabold text-[var(--t-accent)]">
           {lang === "bn" ? tierLabel.bn : tierLabel.en}
         </span>
       </div>
-      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: T.txt0, lineHeight: 1.35 }}>
+      <h3 className="m-0 text-[15px] font-extrabold leading-snug text-[var(--t-txt0)]">
         {title}
       </h3>
       {desc ? (
-        <p style={{ margin: 0, fontSize: 12, color: T.txt1, lineHeight: 1.45 }}>{desc}</p>
+        <p className="m-0 text-xs leading-normal text-[var(--t-txt1)]">{desc}</p>
       ) : null}
       {skillsLabel ? (
-        <p style={{ margin: "8px 0 0", fontSize: 11, color: T.txt2, lineHeight: 1.4 }}>
+        <p className="m-0 mt-2 text-[11px] leading-snug text-[var(--t-txt2)]">
           {lang === "bn" ? "দক্ষতা: " : "Skills: "}
           {skillsLabel}
         </p>
       ) : null}
-      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: T.accent }}>{priceLabel}</p>
+      <p className="m-0 text-xs font-bold text-[var(--t-accent)]">{priceLabel}</p>
 
       {disabled ? (
-        <span
-          style={{
-            textAlign: "center",
-            padding: "10px",
-            fontSize: 11,
-            fontWeight: 700,
-            color: T.txt2,
-            border: `1px dashed ${T.border}`,
-            borderRadius: 8
-          }}
-        >
+        <span className="rounded-lg border border-dashed border-[var(--t-border)] p-2.5 text-center text-[11px] font-bold text-[var(--t-txt2)]">
           {lang === "bn" ? "শীঘ্রই" : "Coming soon"}
         </span>
       ) : isEnrolled ? (
         <Link
           href="/my-tracks"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            padding: "10px",
-            borderRadius: 8,
-            background: T.bg3,
-            border: `1px solid ${T.accent}`,
-            color: T.accent,
-            fontWeight: 800,
-            fontSize: 12,
-            textDecoration: "none"
-          }}
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border border-[var(--t-accent)] bg-[var(--t-bg3)] p-2.5 text-xs font-extrabold text-[var(--t-accent)] no-underline"
         >
           <CheckCircle2 size={14} />
           {lang === "bn" ? "ইতিমধ্যে ভর্তি" : "Enrolled — view"}
@@ -314,23 +241,11 @@ function TrackCard({
           type="button"
           disabled={isEnrolling}
           onClick={onEnroll}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 6,
-            padding: "10px",
-            borderRadius: 8,
-            background: T.accent,
-            border: "none",
-            color: "#000",
-            fontWeight: 800,
-            fontSize: 12,
-            cursor: isEnrolling ? "wait" : "pointer",
-            opacity: isEnrolling ? 0.8 : 1
-          }}
+          className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-lg border-none bg-[var(--t-accent)] p-2.5 text-xs font-extrabold text-black ${
+            isEnrolling ? "cursor-wait opacity-80" : "cursor-pointer"
+          }`}
         >
-          {isEnrolling ? <Loader2 size={14} /> : null}
+          {isEnrolling ? <Loader2 size={14} className="animate-spin" /> : null}
           {isEnrolling
             ? lang === "bn"
               ? "ভর্তি হচ্ছে..."

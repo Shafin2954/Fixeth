@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   Award,
   Briefcase,
@@ -11,14 +12,17 @@ import {
   Clapperboard,
   Code2,
   House,
+  Menu,
   NotebookPen,
   ClipboardList,
   Upload,
   UsersRound,
-  Wrench
+  Wrench,
+  X
 } from "lucide-react";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
 import { useCourse } from "@/components/providers/course-provider";
+import { themeVars } from "@/lib/ui/theme-vars";
 import { tierAllowsScreen, tierUsesLargeText, type NavScreenId } from "@/lib/tier/config";
 
 type NavItem = {
@@ -32,6 +36,7 @@ type NavItem = {
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [isMobile, setIsMobile] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
@@ -39,6 +44,11 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  // Close the drawer whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   const {
     T,
@@ -154,208 +164,125 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       : [])
   ];
 
+  const allowedItems = NAVIGATION_ITEMS.filter((item) =>
+    tierAllowsScreen(effectiveUiTier, item.id as NavScreenId)
+  );
+  // On mobile the bottom bar keeps the 4 primary destinations; everything
+  // else lives in the hamburger drawer.
+  const mobilePrimaryItems = allowedItems.slice(0, 4);
+
+  const langToggle = (
+    <div className="flex overflow-hidden rounded-md border border-[var(--t-border)] bg-[var(--t-bg3)] p-[1.5px]">
+      {[
+        ["en", "EN"],
+        ["bn", "বাংলা"]
+      ].map(([id, label]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => setLang(id)}
+          className={`cursor-pointer rounded border-none px-2.5 py-1 text-[11px] font-bold ${
+            lang === id ? "bg-[var(--t-accent)] text-black" : "bg-transparent text-[var(--t-txt1)]"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const darkToggle = (
+    <button
+      type="button"
+      onClick={() => setIsDark(!isDark)}
+      className="cursor-pointer rounded-md border border-[var(--t-border)] bg-[var(--t-bg3)] px-3 py-1.5 text-xs font-bold text-[var(--t-txt0)]"
+    >
+      {isDark ? "☀️ Light" : "🌙 Dark"}
+    </button>
+  );
+
   return (
     <div
       style={{
-        display: "flex",
-        flexDirection: "column",
-        height: "100vh",
-        background: T.bg0,
-        fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif",
-        color: T.txt0,
-        overflow: "hidden"
+        ...themeVars(T),
+        fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif"
       }}
+      className="flex h-screen flex-col overflow-hidden bg-[var(--t-bg0)] text-[var(--t-txt0)]"
     >
       {isDashboard && (
         <div
-          style={{
-            height: isMobile ? "auto" : density.topBarHeight,
-            background: T.navBg,
-            borderBottom: `1px solid ${T.border}`,
-            display: "flex",
-            alignItems: "center",
-            padding: isMobile ? "12px" : "0 16px",
-            gap: isMobile ? 8 : 12,
-            flexShrink: 0,
-            boxShadow: T.shadow,
-            zIndex: 10,
-            flexWrap: isMobile ? "wrap" : "nowrap",
-            justifyContent: isMobile ? "space-between" : "flex-start",
-            minHeight: isMobile ? "auto" : density.topBarHeight
-          }}
+          style={!isMobile ? { height: density.topBarHeight, minHeight: density.topBarHeight } : undefined}
+          className="z-10 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--t-border)] bg-[var(--t-nav-bg)] p-3 shadow-[var(--t-shadow)] lg:flex-nowrap lg:justify-start lg:gap-3 lg:px-4 lg:py-0"
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flex: isMobile ? "1 1 auto" : "0 0 auto" }}>
+          <div className="flex flex-1 items-center gap-2.5 lg:flex-none">
             <img
               src="/logo.svg"
               alt="Fixeth Logo"
-              style={{
-                width: isMobile ? 28 : 32,
-                height: isMobile ? 28 : 32,
-                borderRadius: 6,
-                objectFit: "contain"
-              }}
+              className="size-7 rounded-md object-contain lg:size-8"
             />
-            <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 2 : 0 }}>
-              <span style={{ fontSize: isMobile ? 16 : 18, fontWeight: 950, color: T.txt0, letterSpacing: -0.5 }}>
+            <div className="flex flex-col gap-0.5 lg:gap-0">
+              <span className="text-base font-black tracking-tight text-[var(--t-txt0)] lg:text-lg">
                 {t.brand}
               </span>
-              <span style={{ fontSize: isMobile ? 11 : 12, color: T.accent, fontStyle: "italic", fontWeight: 700 }}>
+              <span className="text-[11px] font-bold italic text-[var(--t-accent)] lg:text-xs">
                 {t.tagline}
               </span>
             </div>
           </div>
 
-          {!isMobile && (
-            <>
-              <div style={{ width: 1, height: 16, background: T.border, margin: "0 4px" }} />
+          <div className="hidden items-center gap-3 lg:flex">
+            <div className="mx-1 h-4 w-px bg-[var(--t-border)]" />
 
-              <span style={{ fontSize: 13, color: T.txt1, fontWeight: 700 }}>
-                {lang === "bn" ? "আইটি প্লেসমেন্ট কারিকুলাম" : "Professional Syllabus"}
-              </span>
-              <span style={{ color: T.txt2, fontSize: 12 }}>›</span>
-              <span style={{ fontSize: 13, color: T.txt0, fontWeight: 600 }}>
-                {activeModule?.title ?? (lang === "bn" ? "মডিউল" : "Module")}
-              </span>
-              <span style={{ color: T.txt2, fontSize: 12 }}>›</span>
-              <span style={{ fontSize: 13, color: T.txt0, fontWeight: 600 }}>
-                {activeLesson?.title ?? (lang === "bn" ? "লেসন নির্বাচন করুন" : "Select a lesson")}
-              </span>
-            </>
-          )}
+            <span className="text-[13px] font-bold text-[var(--t-txt1)]">
+              {lang === "bn" ? "আইটি প্লেসমেন্ট কারিকুলাম" : "Professional Syllabus"}
+            </span>
+            <span className="text-xs text-[var(--t-txt2)]">›</span>
+            <span className="text-[13px] font-semibold text-[var(--t-txt0)]">
+              {activeModule?.title ?? (lang === "bn" ? "মডিউল" : "Module")}
+            </span>
+            <span className="text-xs text-[var(--t-txt2)]">›</span>
+            <span className="text-[13px] font-semibold text-[var(--t-txt0)]">
+              {activeLesson?.title ?? (lang === "bn" ? "লেসন নির্বাচন করুন" : "Select a lesson")}
+            </span>
+          </div>
 
-          <div style={{ marginLeft: "auto", display: "flex", gap: isMobile ? 6 : 8, alignItems: "center" }}>
-            {!isMobile && (
-              <div
-                style={{
-                  display: "flex",
-                  background: T.bg3,
-                  borderRadius: 6,
-                  overflow: "hidden",
-                  border: `1px solid ${T.border}`,
-                  padding: 1.5
-                }}
-              >
-                {[
-                  ["en", "EN"],
-                  ["bn", "বাংলা"]
-                ].map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setLang(id)}
-                    style={{
-                      padding: "4px 10px",
-                      fontSize: 11,
-                      fontWeight: 700,
-                      background: lang === id ? T.accent : "none",
-                      color: lang === id ? "#000" : T.txt1,
-                      border: "none",
-                      cursor: "pointer",
-                      borderRadius: 4
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            )}
+          <div className="ml-auto flex items-center gap-1.5 lg:gap-2">
+            <div className="hidden lg:block">{langToggle}</div>
+            <div className="hidden lg:block">{darkToggle}</div>
 
-            {!isMobile && (
-              <button
-                type="button"
-                onClick={() => setIsDark(!isDark)}
-                style={{
-                  background: T.bg3,
-                  border: `1px solid ${T.border}`,
-                  borderRadius: 6,
-                  padding: "6px 12px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: T.txt0,
-                  cursor: "pointer"
-                }}
-              >
-                {isDark ? "☀️ Light" : "🌙 Dark"}
-              </button>
-            )}
-
-            <div style={{ position: "relative" }}>
+            <div className="relative">
               <div
                 onClick={() => setProfileOpen((s) => !s)}
                 title={user.name}
-                style={{
-                  width: isMobile ? 32 : 36,
-                  height: isMobile ? 32 : 36,
-                  borderRadius: "50%",
-                  background: T.accent,
-                  color: "#000",
-                  fontSize: isMobile ? 13 : 14,
-                  fontWeight: 900,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  userSelect: "none"
-                }}
+                className="flex size-8 cursor-pointer select-none items-center justify-center rounded-full bg-[var(--t-accent)] text-[13px] font-black text-black lg:size-9 lg:text-sm"
               >
                 {user.name ? user.name.charAt(0).toUpperCase() : "U"}
               </div>
 
               {profileOpen && (
-                <div
-                  style={{
-                    position: "absolute",
-                    right: 0,
-                    top: isMobile ? 40 : 44,
-                    background: T.bg1,
-                    border: `1px solid ${T.border}`,
-                    borderRadius: 8,
-                    padding: 10,
-                    minWidth: 200,
-                    boxShadow: T.shadow,
-                    zIndex: 200
-                  }}
-                >
-                  <div style={{ fontSize: 14, fontWeight: 800, color: T.txt0, padding: "8px 10px" }}>
+                <div className="absolute right-0 top-10 z-[200] min-w-[200px] rounded-lg border border-[var(--t-border)] bg-[var(--t-bg1)] p-2.5 shadow-[var(--t-shadow)] lg:top-11">
+                  <div className="px-2.5 py-2 text-sm font-extrabold text-[var(--t-txt0)]">
                     {user.name}
                   </div>
-                  <div style={{ height: 1, background: T.border, margin: "8px 0" }} />
+                  <div className="my-2 h-px bg-[var(--t-border)]" />
                   <Link
                     href="/settings/profile?tab=profile"
                     onClick={() => setProfileOpen(false)}
-                    style={{
-                      display: "block",
-                      padding: "10px",
-                      color: T.txt1,
-                      textDecoration: "none",
-                      fontSize: 13
-                    }}
+                    className="block p-2.5 text-[13px] text-[var(--t-txt1)] no-underline"
                   >
                     {t.profileView}
                   </Link>
                   <Link
                     href="/settings/profile?tab=account"
                     onClick={() => setProfileOpen(false)}
-                    style={{
-                      display: "block",
-                      padding: "10px",
-                      color: T.txt1,
-                      textDecoration: "none",
-                      fontSize: 13
-                    }}
+                    className="block p-2.5 text-[13px] text-[var(--t-txt1)] no-underline"
                   >
                     {t.profileSettings}
                   </Link>
                   <Link
                     href="/settings/profile?tab=preferences"
                     onClick={() => setProfileOpen(false)}
-                    style={{
-                      display: "block",
-                      padding: "10px",
-                      color: T.txt1,
-                      textDecoration: "none",
-                      fontSize: 13
-                    }}
+                    className="block p-2.5 text-[13px] text-[var(--t-txt1)] no-underline"
                   >
                     {t.profilePreferences}
                   </Link>
@@ -367,49 +294,25 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <div style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>{children}</div>
+      <div className="relative flex min-h-0 flex-1">{children}</div>
 
+      {/* Bottom navigation */}
       <div
-        style={{
-          height: isMobile ? "auto" : density.bottomBarHeight,
-          background: T.navBg,
-          borderTop: `1px solid ${T.border}`,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: isMobile ? "flex-start" : "center",
-          gap: isMobile ? 0 : 2,
-          flexShrink: 0,
-          padding: isMobile ? "0" : "0 6px",
-          zIndex: 10,
-          overflowX: isMobile ? "auto" : "visible",
-          overflowY: "hidden",
-          minHeight: isMobile ? "70px" : density.bottomBarHeight
-        }}
+        style={!isMobile ? { height: density.bottomBarHeight, minHeight: density.bottomBarHeight } : undefined}
+        className="z-10 flex min-h-16 shrink-0 items-center justify-around border-t border-[var(--t-border)] bg-[var(--t-nav-bg)] lg:min-h-0 lg:justify-center lg:gap-0.5 lg:px-1.5"
       >
-        {NAVIGATION_ITEMS.filter((item) =>
-          tierAllowsScreen(effectiveUiTier, item.id as NavScreenId)
-        ).map((item) => {
+        {(isMobile ? mobilePrimaryItems : allowedItems).map((item) => {
           const isActive = item.match(pathname);
           return (
             <Link
               key={item.id}
               href={item.href}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: isMobile ? 3 : 2,
-                padding: isMobile ? "12px 16px" : density.navPadding,
-                borderRadius: 8,
-                background: isActive ? T.accentDim : "none",
-                border: `1.5px solid ${isActive ? T.accent + "3c" : "transparent"}`,
-                cursor: "pointer",
-                minWidth: isMobile ? "70px" : "68px",
-                textDecoration: "none",
-                outline: "none",
-                flex: isMobile ? "0 0 auto" : "none"
-              }}
+              style={!isMobile ? { padding: density.navPadding } : undefined}
+              className={`flex min-w-[64px] cursor-pointer flex-col items-center justify-center gap-[3px] rounded-lg border-[1.5px] px-3 py-2 no-underline outline-none lg:min-w-[68px] lg:gap-0.5 ${
+                isActive
+                  ? "border-[var(--t-accent)]/25 bg-[var(--t-accent-dim)]"
+                  : "border-transparent bg-transparent"
+              }`}
             >
               <item.icon
                 size={isMobile ? 22 : 18}
@@ -417,20 +320,108 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                 color={isActive ? T.accent : T.txt1}
               />
               <span
-                style={{
-                  fontSize: largeNav ? (isMobile ? 11 : 10) : isMobile ? 10 : 8,
-                  fontWeight: isActive ? 800 : 500,
-                  color: isActive ? T.accent : T.txt1,
-                  whiteSpace: "nowrap",
-                  textAlign: "center"
-                }}
+                className={`whitespace-nowrap text-center ${
+                  isActive ? "font-extrabold text-[var(--t-accent)]" : "font-medium text-[var(--t-txt1)]"
+                } ${largeNav ? "text-[11px] lg:text-[10px]" : "text-[10px] lg:text-[8px]"}`}
               >
                 {item.label}
               </span>
             </Link>
           );
         })}
+
+        {/* Mobile-only hamburger opens the full nav drawer */}
+        {isMobile && (
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label={lang === "bn" ? "মেনু খুলুন" : "Open menu"}
+            className="flex min-w-[64px] cursor-pointer flex-col items-center justify-center gap-[3px] rounded-lg border-[1.5px] border-transparent bg-transparent px-3 py-2 outline-none"
+          >
+            <Menu size={22} strokeWidth={1.9} color={T.txt1} />
+            <span className={`whitespace-nowrap font-medium text-[var(--t-txt1)] ${largeNav ? "text-[11px]" : "text-[10px]"}`}>
+              {lang === "bn" ? "মেনু" : "Menu"}
+            </span>
+          </button>
+        )}
       </div>
+
+      {/* Mobile navigation drawer */}
+      <AnimatePresence>
+        {menuOpen && (
+          <>
+            <motion.div
+              key="drawer-overlay"
+              className="fixed inset-0 z-40 bg-black/55"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onClick={() => setMenuOpen(false)}
+            />
+            <motion.div
+              key="drawer-panel"
+              className="fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-[var(--t-border)] bg-[var(--t-nav-bg)]"
+              style={themeVars(T)}
+              initial={{ x: "-100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "-100%" }}
+              transition={{ type: "spring", damping: 32, stiffness: 360 }}
+            >
+              <div className="flex items-center justify-between border-b border-[var(--t-border)] px-4 py-3.5">
+                <div className="flex items-center gap-2.5">
+                  <img src="/logo.svg" alt="Fixeth Logo" className="size-7 rounded-md object-contain" />
+                  <span className="text-base font-black tracking-tight text-[var(--t-txt0)]">{t.brand}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen(false)}
+                  aria-label={lang === "bn" ? "মেনু বন্ধ করুন" : "Close menu"}
+                  className="flex size-9 cursor-pointer items-center justify-center rounded-lg border border-[var(--t-border)] bg-[var(--t-bg2)] outline-none"
+                >
+                  <X size={18} color={T.txt1} />
+                </button>
+              </div>
+
+              <nav className="min-h-0 flex-1 overflow-y-auto p-3">
+                {allowedItems.map((item) => {
+                  const isActive = item.match(pathname);
+                  return (
+                    <Link
+                      key={item.id}
+                      href={item.href}
+                      onClick={() => setMenuOpen(false)}
+                      className={`mb-1 flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2.5 no-underline ${
+                        isActive
+                          ? "border-[var(--t-accent)]/25 bg-[var(--t-accent-dim)]"
+                          : "border-transparent bg-transparent"
+                      }`}
+                    >
+                      <item.icon
+                        size={19}
+                        strokeWidth={isActive ? 2.2 : 1.9}
+                        color={isActive ? T.accent : T.txt1}
+                      />
+                      <span
+                        className={`text-[13px] ${
+                          isActive ? "font-extrabold text-[var(--t-accent)]" : "font-medium text-[var(--t-txt1)]"
+                        }`}
+                      >
+                        {item.label}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </nav>
+
+              <div className="flex items-center justify-between gap-3 border-t border-[var(--t-border)] px-4 py-3.5">
+                {langToggle}
+                {darkToggle}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -445,18 +436,7 @@ function ProfileSignOutButton() {
         setProfileOpen(false);
         await signOut();
       }}
-      style={{
-        display: "block",
-        width: "100%",
-        padding: "8px",
-        background: "none",
-        border: "none",
-        textAlign: "left",
-        color: T.red,
-        cursor: "pointer",
-        fontWeight: 800,
-        fontSize: 12
-      }}
+      className="block w-full cursor-pointer border-none bg-transparent p-2 text-left text-xs font-extrabold text-[var(--t-red)]"
     >
       {t.profileSignOut}
     </button>

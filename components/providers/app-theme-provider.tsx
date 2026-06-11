@@ -322,6 +322,11 @@ export function AppThemeProvider({
     localStorage.setItem("fixeth.isDark", String(isDark));
   }, [isDark]);
 
+  // Keep Tailwind's `dark:` variants in sync with the app theme toggle.
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+  }, [isDark]);
+
   const accent = preferences.accentColor || ACCENT_PRESETS[preferences.colorPreset];
   const baseTheme = themes[isDark ? "dark" : "light"];
   const T = useMemo(

@@ -1,5 +1,4 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { resolveGeminiModel } from "@/lib/ai/byoa";
 
 type ApiKeySlot = {
   slot: number;
@@ -18,13 +17,13 @@ export class AiFallbackUnavailableError extends Error {
   }
 }
 
-class GeminiApiError extends Error {
+class OpenAIApiError extends Error {
   constructor(
     public status: number,
     message: string
   ) {
     super(message);
-    this.name = status === 429 ? "RateLimitError" : "GeminiError";
+    this.name = status === 429 ? "RateLimitError" : "OpenAIError";
   }
 }
 
@@ -51,32 +50,39 @@ async function loadKeySlots(): Promise<ApiKeySlot[]> {
   return parseSlots(data?.value);
 }
 
-async function callGemini(key: string, system: string, prompt: string): Promise<string> {
-  const model = resolveGeminiModel(process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash");
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(
-    key
-  )}`;
+async function callOpenAI(key: string, system: string, prompt: string): Promise<string> {
+  const model = process.env.OPENAI_FALLBACK_MODEL || "gpt-4o-mini"; // Using known valid model
+  const url = "https://api.openai.com/v1/chat/completions";
+
+  // Prepare request body - gpt-4o-mini supports these parameters
+  const requestBody: any = {
+    model: model,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.35,
+    max_completion_tokens: 900
+  };
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.35, maxOutputTokens: 900 }
-    })
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`
+    },
+    body: JSON.stringify(requestBody)
   });
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new GeminiApiError(res.status, `Gemini API ${res.status}: ${detail.slice(0, 500)}`);
+    throw new OpenAIApiError(res.status, `OpenAI API ${res.status}: ${detail.slice(0, 500)}`);
   }
 
   const json = await res.json();
-  const text =
-    json?.candidates?.[0]?.content?.parts?.map((part: { text?: string }) => part.text).join("") || "";
+  const text = json?.choices?.[0]?.message?.content || "";
 
-  if (!text.trim()) throw new Error("Gemini returned an empty response.");
+  if (!text.trim()) throw new Error("OpenAI returned an empty response.");
   return text.trim();
 }
 
@@ -91,12 +97,12 @@ export async function runServerFallbackChat(system: string, prompt: string): Pro
   let lastError: unknown = null;
   for (const slot of candidates) {
     try {
-      return await callGemini(slot.key, system, prompt);
+      return await callOpenAI(slot.key, system, prompt);
     } catch (error) {
       lastError = error;
-      console.error("[server-fallback] Gemini request failed", {
+      console.error("[server-fallback] OpenAI request failed", {
         slot: slot.slot,
-        status: error instanceof GeminiApiError ? error.status : undefined,
+        status: error instanceof OpenAIApiError ? error.status : undefined,
         message: error instanceof Error ? error.message : String(error)
       });
       if ((error as Error).name !== "RateLimitError") break;

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { motion, useDragControls } from "framer-motion";
 import { Module, ChatMessage } from "@/types/ui";
 import { YouTubePlayer, type YouTubePlayerHandle } from "@/components/lesson/youtube-player";
 import { LessonNotes } from "@/components/lesson/lesson-notes";
@@ -21,6 +22,7 @@ import {
   parseAnswerSegments,
   buildTopicContext
 } from "@/lib/ai/video-chat";
+import { themeVars } from "@/lib/ui/theme-vars";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
 import { useCourse } from "@/components/providers/course-provider";
 import type { Lesson } from "@/types";
@@ -31,18 +33,21 @@ type PracticeItem = {
   ans: number;
 };
 
+type SheetSnap = "peek" | "half" | "full";
+type TabsPanelMode = "side" | "stacked" | "sheet";
+
 const createLocalizedChatLog = (selectedLang: string): ChatMessage[] => [
   { role: "ai", text: selectedLang === "bn" ? "এই লেকচার ভিডিও সম্পর্কে কিছু জিজ্ঞেস করুন!" : "Ask me anything about this video's logic!" }
 ];
 
 const createLocalizedPractices = (selectedLang: string): PracticeItem[] => [
   {
-    q: selectedLang === "bn" ? "ফাংশন ডিক্লেয়ার করার সঠিক কীওয়ার্ড কোনটি?" : "Which keyword is used to declare a function in Python?",
+    q: selectedLang === "bn" ? "ফাংশন ডিক্লেয়ার করার সঠিক কীওয়ার্ড কোনটি?" : "Which keyword is used to declare a function in Python?",
     opts: ["func", "def", "lambda", "define"],
     ans: 1
   },
   {
-    q: selectedLang === "bn" ? "ফাংশনের ভেতর ডিক্লেয়ার করা ভ্যারিয়েবলের স্কোপ কেমন হয়?" : "What scope does a variable declared inside a Python function have?",
+    q: selectedLang === "bn" ? "ফাংশনের ভেতর ডিক্লেয়ার করা ভ্যারিয়েবলের স্কোপ কেমন হয়?" : "What scope does a variable declared inside a Python function have?",
     opts: ["Global scope", "Internal local scope", "Relational scope", "Shared outer scope"],
     ans: 1
   }
@@ -50,7 +55,7 @@ const createLocalizedPractices = (selectedLang: string): PracticeItem[] => [
 
 const createLocalizedNotes = (selectedLang: string) =>
   selectedLang === "bn"
-    ? "📝 আমার কোর্স নোটস:\n• পাইথনে ফাংশন লেখার জন্য 'def' কীওয়ার্ড ব্যবহার করা হয়\n• 'return' স্টেটমেন্ট দিয়ে মান পাঠানো হয়\n• লোকাল স্কোপ ভ্যারিয়েবল শুধুমাত্র ফাংশনের ভেতরেই সক্রিয় থাকে।"
+    ? "📝 আমার কোর্স নোটস:\n• পাইথনে ফাংশন লেখার জন্য 'def' কীওয়ার্ড ব্যবহার করা হয়\n• 'return' স্টেটমেন্ট দিয়ে মান পাঠানো হয়\n• লোকাল স্কোপ ভ্যারিয়েবল শুধুমাত্র ফাংশনের ভেতরেই সক্রিয় থাকে।"
     : "📝 My Personal Lecture Notes:\n• Python functions are defined with the 'def' keyword\n• Use 'return' to send computed results back\n• Local scope keeps variables inside the function body only.";
 
 export default function GuidedVideoScreen({
@@ -90,6 +95,30 @@ export default function GuidedVideoScreen({
   const playerHandleRef = useRef<YouTubePlayerHandle | null>(null);
 
   const videoContainerRef = useRef<HTMLDivElement>(null);
+
+  // Mobile bottom-sheet state
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [containerH, setContainerH] = useState(0);
+  const [sheetSnap, setSheetSnap] = useState<SheetSnap>("peek");
+  const sheetDragControls = useDragControls();
+
+  useEffect(() => {
+    const update = () => {
+      setIsMobile(window.innerWidth < 768);
+      setContainerH(containerRef.current?.clientHeight ?? 0);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  const sheetH = containerH || 600;
+  const snapOffsets: Record<SheetSnap, number> = {
+    full: Math.max(12, Math.round(sheetH * 0.06)),
+    half: Math.round(sheetH * 0.5),
+    peek: Math.max(0, sheetH - 104)
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -197,7 +226,7 @@ export default function GuidedVideoScreen({
 
   const subtitles = {
     en: "Functions group reusable segments of logic to avoid redundant boilerplate code execution.",
-    bn: "ফাংশন মূলত কোডের পুনঃব্যবহারযোগ্য অংশগুলোকে এক গ্রুপে সাজায় যাতে একই কোড বারবার লিখতে না হয়।"
+    bn: "ফাংশন মূলত কোডের পুনঃব্যবহারযোগ্য অংশগুলোকে এক গ্রুপে সাজায় যাতে একই কোড বারবার লিখতে না হয়।"
   };
 
   const activeLessonTitle =
@@ -327,71 +356,31 @@ export default function GuidedVideoScreen({
   // Modular Video Player render logic
   const renderVideoPlayer = () => {
     return (
-      <div style={{ width: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <div ref={videoContainerRef} style={{ position: "relative" }}>
+      <div className="flex w-full flex-col overflow-hidden">
+        <div ref={videoContainerRef} className="relative">
           {youtubeId ? (
             <YouTubePlayer videoId={youtubeId} onReady={handlePlayerReady} />
           ) : (
-            <div
-              style={{
-                aspectRatio: "16/9",
-                background: T.bg2,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: T.txt1,
-                fontSize: 13
-              }}
-            >
+            <div className="flex aspect-video items-center justify-center bg-[var(--t-bg2)] text-[13px] text-[var(--t-txt1)]">
               {lang === "bn" ? "ভিডিও শীঘ্রই আসছে" : "Video coming soon"}
             </div>
           )}
 
           {seekTime && (
-            <div
-              style={{
-                position: "absolute",
-                top: 10,
-                right: 10,
-                background: T.amber,
-                borderRadius: 6,
-                padding: "4px 8px",
-                fontSize: 10,
-                color: "#000",
-                fontWeight: 900,
-                zIndex: 4
-              }}
-            >
+            <div className="absolute right-2.5 top-2.5 z-[4] rounded-md bg-[var(--t-amber)] px-2 py-1 text-[10px] font-black text-black">
               ⏱ Jumped to {seekTime}
             </div>
           )}
 
           {videoLang !== "off" && !youtubeId && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: 12,
-                left: "50%",
-                transform: "translateX(-50%)",
-                background: "rgba(0, 0, 0, 0.8)",
-                borderRadius: 6,
-                padding: "6px 14px",
-                fontSize: 11,
-                color: "#FFF",
-                textAlign: "center",
-                maxWidth: "85%",
-                zIndex: 2,
-                lineHeight: 1.4,
-                border: "1px solid rgba(255,255,255,0.1)"
-              }}
-            >
+            <div className="absolute bottom-3 left-1/2 z-[2] max-w-[85%] -translate-x-1/2 rounded-md border border-white/10 bg-black/80 px-3.5 py-1.5 text-center text-[11px] leading-snug text-white">
               {videoLang === "bn" ? subtitles.bn : subtitles.en}
             </div>
           )}
         </div>
 
         {/* Sub Player Control strip */}
-        <div style={{ background: T.bg2, padding: "8px 12px", display: "flex", alignItems: "center", gap: 12, borderTop: `1px solid ${T.border}`, flexWrap: "wrap" }}>
+        <div className="flex flex-wrap items-center gap-3 border-t border-[var(--t-border)] bg-[var(--t-bg2)] px-3 py-2">
           <button
             onClick={() => {
               const handle = playerHandleRef.current;
@@ -404,7 +393,7 @@ export default function GuidedVideoScreen({
                 setPlaying(true);
               }
             }}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: T.txt0, outline: "none" }}
+            className="cursor-pointer border-none bg-transparent p-1 text-[13px] text-[var(--t-txt0)] outline-none"
           >
             {playing ? "⏸" : "▶"}
           </button>
@@ -417,24 +406,20 @@ export default function GuidedVideoScreen({
               const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
               seekToSeconds(ratio * duration);
             }}
-            style={{ flex: 1, minWidth: 100, height: 5, background: T.bg4, borderRadius: 2, position: "relative", cursor: "pointer" }}
+            className="relative h-[5px] min-w-[100px] flex-1 cursor-pointer rounded-sm bg-[var(--t-bg4)]"
           >
             <div
-              style={{
-                width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%`,
-                height: "100%",
-                background: T.accent,
-                borderRadius: 2
-              }}
+              className="h-full rounded-sm bg-[var(--t-accent)]"
+              style={{ width: `${duration ? Math.min(100, (currentTime / duration) * 100) : 0}%` }}
             />
           </div>
 
-          <span style={{ fontSize: 9, color: T.txt1, fontFamily: "monospace" }}>
+          <span className="font-mono text-[9px] text-[var(--t-txt1)]">
             {formatSeconds(currentTime)} / {formatSeconds(duration)}
           </span>
 
           {/* Captions selector */}
-          <div style={{ display: "flex", background: T.bg3, borderRadius: 6, overflow: "hidden", border: `1px solid ${T.border}`, padding: 1.5 }}>
+          <div className="flex overflow-hidden rounded-md border border-[var(--t-border)] bg-[var(--t-bg3)] p-[1.5px]">
             {[
               ["en", "EN"],
               ["bn", "বাংলা"],
@@ -443,16 +428,11 @@ export default function GuidedVideoScreen({
               <button
                 key={lCode}
                 onClick={() => setVideoLang(lCode as any)}
-                style={{
-                  padding: "2px 6px",
-                  fontSize: 8.5,
-                  fontWeight: 700,
-                  background: videoLang === lCode ? T.accent : "none",
-                  color: videoLang === lCode ? "#000" : T.txt1,
-                  border: "none",
-                  cursor: "pointer",
-                  borderRadius: 4
-                }}
+                className={`cursor-pointer rounded border-none px-1.5 py-0.5 text-[8.5px] font-bold ${
+                  videoLang === lCode
+                    ? "bg-[var(--t-accent)] text-black"
+                    : "bg-transparent text-[var(--t-txt1)]"
+                }`}
               >
                 {label}
               </button>
@@ -463,38 +443,21 @@ export default function GuidedVideoScreen({
           <button
             onClick={handleFullscreen}
             title={lang === "bn" ? "ফুল স্ক্রিন" : "Fullscreen"}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontSize: 13,
-              color: T.txt0,
-              padding: "2px 6px",
-              display: "flex",
-              alignItems: "center",
-              outline: "none"
-            }}
+            aria-label={lang === "bn" ? "ফুল স্ক্রিন" : "Fullscreen"}
+            className="flex cursor-pointer items-center border-none bg-transparent px-1.5 py-0.5 text-[13px] text-[var(--t-txt0)] outline-none"
           >
             📺
           </button>
 
           {/* Minimal Live Viewers Counter Badge */}
           <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              background: T.accentDim,
-              border: `1px solid ${T.accent}33`,
-              borderRadius: 6,
-              padding: "3px 8px",
-              fontSize: 9.5,
-              fontWeight: 700,
-              color: T.accent
-            }}
+            className="flex items-center gap-1 rounded-md border border-[var(--t-accent)]/20 bg-[var(--t-accent-dim)] px-2 py-[3px] text-[9.5px] font-bold text-[var(--t-accent)]"
             title={lang === "bn" ? `${activeViewers} জন লাইভ শিখছেন` : `${activeViewers} students active now`}
           >
-            <span style={{ width: 5, height: 5, background: T.accent, borderRadius: "50%", display: "inline-block", boxShadow: `0 0 6px ${T.accent}` }} />
+            <span
+              className="inline-block size-[5px] rounded-full bg-[var(--t-accent)]"
+              style={{ boxShadow: `0 0 6px ${T.accent}` }}
+            />
             {activeViewers} live
           </div>
 
@@ -502,17 +465,11 @@ export default function GuidedVideoScreen({
             type="button"
             onClick={() => void handleMarkComplete()}
             disabled={markingComplete || activeLesson?.done}
-            style={{
-              marginLeft: "auto",
-              background: activeLesson?.done ? T.bg4 : T.accent,
-              border: "none",
-              borderRadius: 6,
-              padding: "6px 12px",
-              fontSize: 10,
-              fontWeight: 800,
-              color: activeLesson?.done ? T.txt1 : "#000",
-              cursor: activeLesson?.done ? "default" : "pointer"
-            }}
+            className={`ml-auto rounded-md border-none px-3 py-1.5 text-[10px] font-extrabold ${
+              activeLesson?.done
+                ? "cursor-default bg-[var(--t-bg4)] text-[var(--t-txt1)]"
+                : "cursor-pointer bg-[var(--t-accent)] text-black"
+            }`}
           >
             {markingComplete
               ? "..."
@@ -527,22 +484,14 @@ export default function GuidedVideoScreen({
         </div>
 
         {completeMsg && (
-          <div style={{ padding: "6px 12px", fontSize: 11, color: T.accent, fontWeight: 600 }}>
+          <div className="px-3 py-1.5 text-[11px] font-semibold text-[var(--t-accent)]">
             {completeMsg}
           </div>
         )}
 
         {lessonNotesMd && (
-          <div
-            style={{
-              padding: "14px 16px",
-              borderTop: `1px solid ${T.border}`,
-              background: T.bg1,
-              maxHeight: 220,
-              overflowY: "auto"
-            }}
-          >
-            <div style={{ fontSize: 11, fontWeight: 800, color: T.txt1, marginBottom: 8 }}>
+          <div className="max-h-[220px] overflow-y-auto border-t border-[var(--t-border)] bg-[var(--t-bg1)] px-4 py-3.5">
+            <div className="mb-2 text-[11px] font-extrabold text-[var(--t-txt1)]">
               {lang === "bn" ? "লেসন নোট" : "Lesson notes"}
             </div>
             <LessonNotes markdown={lessonNotesMd} lang={lang} />
@@ -553,24 +502,23 @@ export default function GuidedVideoScreen({
   };
 
   // Modular Tabs panel render logic
-  const renderTabsPanel = (isSideMode: boolean = false) => {
+  const renderTabsPanel = (mode: TabsPanelMode) => {
+    const isSideMode = mode === "side";
+    const shellClasses =
+      mode === "sheet"
+        ? "flex min-h-0 flex-1 flex-col overflow-hidden bg-transparent"
+        : `flex flex-1 flex-col overflow-hidden rounded-xl border border-[var(--t-border)] bg-[var(--t-bg1)] shadow-[var(--t-shadow)] ${
+            isSideMode ? "mx-1 min-h-full" : "mt-1 min-h-[280px]"
+          }`;
+
     return (
-      <div
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          margin: isSideMode ? "0 4px" : "4px 0 0",
-          background: T.bg1,
-          border: `1px solid ${T.border}`,
-          borderRadius: 12,
-          overflow: "hidden",
-          boxShadow: T.shadow,
-          minHeight: isSideMode ? "100%" : 280
-        }}
-      >
+      <div className={shellClasses}>
         {/* Tabs selector bar */}
-        <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, background: T.bg2 }}>
+        <div
+          className={`flex border-b border-[var(--t-border)] ${
+            mode === "sheet" ? "bg-transparent" : "bg-[var(--t-bg2)]"
+          }`}
+        >
           {tabs.map((tab, idx) => {
             const tabKeys = ["Notes", "Transcript", "Chat with Video", "Practice"];
             const currentKey = tabKeys[idx];
@@ -578,17 +526,19 @@ export default function GuidedVideoScreen({
             return (
               <button
                 key={tab}
-                onClick={() => setActiveTab(currentKey)}
+                onClick={() => {
+                  setActiveTab(currentKey);
+                  if (mode === "sheet" && sheetSnap === "peek") setSheetSnap("half");
+                }}
+                className={`cursor-pointer border-none bg-transparent py-2.5 font-bold outline-none ${
+                  mode === "sheet"
+                    ? "flex-1 px-1 text-[11px]"
+                    : isSideMode
+                      ? "px-3 text-[10.5px]"
+                      : "px-[18px] text-[11.5px]"
+                } ${isSelected ? "bg-[var(--t-bg1)] text-[var(--t-accent)]" : "text-[var(--t-txt1)]"}`}
                 style={{
-                  padding: isSideMode ? "10px 12px" : "10px 18px",
-                  fontSize: isSideMode ? 10.5 : 11.5,
-                  fontWeight: 700,
-                  background: isSelected ? T.bg1 : "none",
-                  border: "none",
-                  borderBottom: isSelected ? `2.5px solid ${T.accent}` : "2.5px solid transparent",
-                  color: isSelected ? T.accent : T.txt1,
-                  cursor: "pointer",
-                  outline: "none"
+                  borderBottom: isSelected ? `2.5px solid ${T.accent}` : "2.5px solid transparent"
                 }}
               >
                 {tab}
@@ -598,43 +548,30 @@ export default function GuidedVideoScreen({
         </div>
 
         {/* Tab active content layout */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "14px" }}>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3.5">
           {activeTab === "Notes" && (
-            <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            <div className="flex h-full flex-col">
               {lessonNotesMd ? (
-                <div style={{ marginBottom: 10, maxHeight: 140, overflowY: "auto" }}>
+                <div className="mb-2.5 max-h-[140px] overflow-y-auto">
                   <LessonNotes markdown={lessonNotesMd} lang={lang} />
                 </div>
               ) : null}
               <textarea
                 value={notesText}
                 onChange={(e) => setNotesText(e.target.value)}
-                style={{
-                  width: "100%",
-                  flex: 1,
-                  background: T.bg2,
-                  border: `1px solid ${T.border}`,
-                  borderRadius: 8,
-                  padding: 12,
-                  fontSize: 12,
-                  color: T.txt0,
-                  lineHeight: 1.6,
-                  resize: "none",
-                  outline: "none",
-                  fontFamily: "inherit"
-                }}
+                className="w-full flex-1 resize-none rounded-lg border border-[var(--t-border)] bg-[var(--t-bg2)] p-3 font-[inherit] text-xs leading-relaxed text-[var(--t-txt0)] outline-none"
               />
-              <div style={{ height: 4 }} />
-              <div style={{ fontSize: 10, color: T.txt2, textAlign: "right" }}>
-                ✦ {lang === "bn" ? "ক্লাউড সিঙ���ক্রোনাইজেশন আর্কাইভে সংরক্ষিত হয়েছে" : "Auto-saved to Cloud Sync Archive"}
+              <div className="h-1" />
+              <div className="text-right text-[10px] text-[var(--t-txt2)]">
+                ✦ {lang === "bn" ? "ক্লাউড সিংক্রোনাইজেশন আর্কাইভে সংরক্ষিত হয়েছে" : "Auto-saved to Cloud Sync Archive"}
               </div>
             </div>
           )}
 
           {activeTab === "Transcript" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div className="flex flex-col gap-1.5">
               {timedTranscript.length === 0 ? (
-                <div style={{ fontSize: 12, color: T.txt2, padding: "8px 4px", lineHeight: 1.5 }}>
+                <div className="px-1 py-2 text-xs leading-normal text-[var(--t-txt2)]">
                   {lang === "bn"
                     ? "এই ভিডিওর জন্য ট্রান্সক্রিপ্ট এখনো প্রস্তুত হয়নি।"
                     : "Transcript is not available for this video yet."}
@@ -648,21 +585,16 @@ export default function GuidedVideoScreen({
                     <div
                       key={chunk.id}
                       onClick={() => seekToSeconds(start)}
-                      style={{
-                        display: "flex",
-                        gap: 12,
-                        padding: "8px 10px",
-                        borderRadius: 8,
-                        cursor: "pointer",
-                        background: isActive ? T.accentDim : "transparent",
-                        border: isActive ? `1px solid ${T.accent}33` : `1px solid ${T.border}33`,
-                        transition: "background 0.1s"
-                      }}
+                      className={`flex cursor-pointer gap-3 rounded-lg border px-2.5 py-2 transition-colors ${
+                        isActive
+                          ? "border-[var(--t-accent)]/20 bg-[var(--t-accent-dim)]"
+                          : "border-[var(--t-border)]/20 bg-transparent"
+                      }`}
                     >
-                      <span style={{ fontSize: 10, color: T.accent, fontWeight: 900, fontFamily: "monospace", flexShrink: 0 }}>
+                      <span className="shrink-0 font-mono text-[10px] font-black text-[var(--t-accent)]">
                         {formatSeconds(start)}
                       </span>
-                      <span style={{ fontSize: 12, color: T.txt0, lineHeight: 1.4 }}>
+                      <span className="text-xs leading-snug text-[var(--t-txt0)]">
                         {chunk.chunk_text}
                       </span>
                     </div>
@@ -673,22 +605,18 @@ export default function GuidedVideoScreen({
           )}
 
           {activeTab === "Chat with Video" && (
-            <div style={{ display: "flex", flexDirection: "column", height: "100%", justifyContent: "space-between" }}>
-              <div style={{ flex: 1, overflowY: "auto", marginBottom: 8 }}>
+            <div className="flex h-full flex-col justify-between">
+              <div className="mb-2 flex-1 overflow-y-auto">
                 {chatLog.map((chat, idx) => {
                   const isUser = chat.role === "user";
                   return (
-                    <div key={idx} style={{ display: "flex", flexDirection: isUser ? "row-reverse" : "row", gap: 8, marginBottom: 10 }}>
+                    <div key={idx} className={`mb-2.5 flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
                       <div
-                        style={{
-                          background: isUser ? T.accent : T.bg3,
-                          color: isUser ? "#000" : T.txt0,
-                          borderRadius: isUser ? "10px 10px 2px 10px" : "10px 10px 10px 2px",
-                          padding: "6px 12px",
-                          fontSize: 11.5,
-                          lineHeight: 1.5,
-                          maxWidth: "80%"
-                        }}
+                        className={`max-w-[80%] px-3 py-1.5 text-[11.5px] leading-normal ${
+                          isUser
+                            ? "rounded-[10px_10px_2px_10px] bg-[var(--t-accent)] text-black"
+                            : "rounded-[10px_10px_10px_2px] bg-[var(--t-bg3)] text-[var(--t-txt0)]"
+                        }`}
                       >
                         {isUser
                           ? chat.text
@@ -699,20 +627,7 @@ export default function GuidedVideoScreen({
                                 <button
                                   key={sIdx}
                                   onClick={() => seekToSeconds(seg.seconds)}
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    margin: "0 2px",
-                                    background: T.amberDim,
-                                    border: `1px solid ${T.amber}40`,
-                                    color: T.amber,
-                                    borderRadius: 4,
-                                    padding: "0 5px",
-                                    fontSize: 10,
-                                    fontWeight: 700,
-                                    fontFamily: "monospace",
-                                    cursor: "pointer"
-                                  }}
+                                  className="mx-0.5 inline-flex cursor-pointer items-center rounded border border-[var(--t-amber)]/25 bg-[var(--t-amber-dim)] px-1.5 font-mono text-[10px] font-bold text-[var(--t-amber)]"
                                 >
                                   ⏱ {seg.value}
                                 </button>
@@ -723,7 +638,7 @@ export default function GuidedVideoScreen({
                   );
                 })}
               </div>
-              <div style={{ display: "flex", gap: 6, borderTop: `1px solid ${T.border}`, paddingTop: 8 }}>
+              <div className="flex gap-1.5 border-t border-[var(--t-border)] pt-2">
                 <input
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
@@ -738,34 +653,15 @@ export default function GuidedVideoScreen({
                         ? "ভিডিওর যেকোনো রেফারেন্সে প্রশ্ন করুন..."
                         : "Ask anything about this video..."
                   }
-                  style={{
-                    flex: 1,
-                    background: T.bg2,
-                    border: `1px solid ${T.border}`,
-                    borderRadius: 8,
-                    padding: "6px 10px",
-                    color: T.txt0,
-                    fontSize: 12,
-                    outline: "none"
-                  }}
+                  className="min-h-9 flex-1 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg2)] px-2.5 py-1.5 text-xs text-[var(--t-txt0)] outline-none"
                 />
                 <button
                   onClick={() => void handleChat()}
                   disabled={chatLoading}
-                  style={{
-                    background: T.accent,
-                    border: "none",
-                    borderRadius: 8,
-                    width: 32,
-                    height: 32,
-                    cursor: chatLoading ? "default" : "pointer",
-                    opacity: chatLoading ? 0.6 : 1,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#000",
-                    fontWeight: 700
-                  }}
+                  aria-label={lang === "bn" ? "পাঠান" : "Send"}
+                  className={`flex size-9 items-center justify-center rounded-lg border-none bg-[var(--t-accent)] font-bold text-black ${
+                    chatLoading ? "cursor-default opacity-60" : "cursor-pointer"
+                  }`}
                 >
                   {chatLoading ? "…" : "↑"}
                 </button>
@@ -778,18 +674,12 @@ export default function GuidedVideoScreen({
               {practices.map((quiz, qIdx) => (
                 <div
                   key={qIdx}
-                  style={{
-                    background: T.bg2,
-                    border: `1px solid ${T.border}`,
-                    borderRadius: 10,
-                    padding: "12px",
-                    marginBottom: 10
-                  }}
+                  className="mb-2.5 rounded-[10px] border border-[var(--t-border)] bg-[var(--t-bg2)] p-3"
                 >
-                  <div style={{ fontSize: 12, fontWeight: 700, color: T.txt0, marginBottom: 8 }}>
+                  <div className="mb-2 text-xs font-bold text-[var(--t-txt0)]">
                     {qIdx + 1}. {quiz.q}
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <div className="flex flex-col gap-[5px]">
                     {quiz.opts.map((opt: string, oIdx: number) => {
                       const isPicked = userAssessAnswers[qIdx] === oIdx;
                       const isCorrect = userAssessAnswers[qIdx] !== undefined && oIdx === quiz.ans;
@@ -799,38 +689,22 @@ export default function GuidedVideoScreen({
                         <button
                           key={oIdx}
                           onClick={() => setUserAssessAnswers((p) => ({ ...p, [qIdx]: oIdx }))}
-                          style={{
-                            width: "100%",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "6px 10px",
-                            background: isCorrect ? T.accentDim : isWrong ? T.redDim : isPicked ? T.blueDim : T.bg3,
-                            border: `1px solid ${
-                              isCorrect
-                                ? T.accent + "60"
-                                : isWrong
-                                ? T.red + "60"
+                          className={`flex w-full cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1.5 text-left text-[11px] text-[var(--t-txt0)] ${
+                            isCorrect
+                              ? "border-[var(--t-accent)]/40 bg-[var(--t-accent-dim)]"
+                              : isWrong
+                                ? "border-[var(--t-red)]/40 bg-[var(--t-red-dim)]"
                                 : isPicked
-                                ? T.blue + "40"
-                                : T.border
-                            }`,
-                            borderRadius: 6,
-                            color: T.txt0,
-                            fontSize: 11,
-                            cursor: "pointer",
-                            textAlign: "left"
-                          }}
+                                  ? "border-[var(--t-blue)]/25 bg-[var(--t-blue-dim)]"
+                                  : "border-[var(--t-border)] bg-[var(--t-bg3)]"
+                          }`}
                         >
                           <span
-                            style={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: "50%",
-                              border: `1.5px solid ${isPicked ? T.accent : T.borderHi}`,
-                              background: isPicked ? T.accent : "none",
-                              flexShrink: 0
-                            }}
+                            className={`size-3 shrink-0 rounded-full border-[1.5px] ${
+                              isPicked
+                                ? "border-[var(--t-accent)] bg-[var(--t-accent)]"
+                                : "border-[var(--t-border-hi)]"
+                            }`}
                           />
                           {opt}
                         </button>
@@ -846,94 +720,119 @@ export default function GuidedVideoScreen({
     );
   };
 
+  const topicHeader = (
+    <div className="mb-3.5 flex items-center justify-between rounded-[10px] border border-[var(--t-border)] bg-[var(--t-bg1)] px-4 py-2.5 shadow-[var(--t-shadow)]">
+      <div className="min-w-0">
+        <div className="text-[9.5px] font-extrabold uppercase tracking-wider text-[var(--t-accent)]">
+          {lang === "bn" ? "ভিডিও লেকচার" : "ACTIVE LESSON VIDEO"}
+        </div>
+        <h3 className="m-0 mt-0.5 truncate text-[13px] font-black text-[var(--t-txt0)]">
+          {modules.find((m) => m.lessons.some((l) => l.id === activeLessonId))?.lessons.find((l) => l.id === activeLessonId)?.title || "1.3 Scopes and Scuttles Check"}
+        </h3>
+      </div>
+
+      {/* Dock Control Toggle — desktop layout only */}
+      <button
+        onClick={() => setDockOnSide(!dockOnSide)}
+        className="hidden cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--t-border)] bg-[var(--t-bg2)] px-3 py-1.5 text-[10.5px] font-extrabold text-[var(--t-accent)] outline-none md:flex"
+      >
+        {dockOnSide ? "🥞 Move Notes Below" : "📋 Dock Notes to Side"}
+      </button>
+    </div>
+  );
+
   return (
     <div
-      style={{
-        flex: 1,
-        display: "flex",
-        flexDirection: "column",
-        minWidth: 0,
-        background: T.bg0,
-        position: "relative",
-        overflowY: "auto",
-        padding: "16px"
-      }}
+      ref={containerRef}
+      style={themeVars(T)}
+      className={`relative flex min-w-0 flex-1 flex-col bg-[var(--t-bg0)] p-3 md:p-4 ${
+        isMobile ? "overflow-hidden" : "overflow-y-auto"
+      }`}
     >
-      {/* Topic header with Dock Toggle */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          background: T.bg1,
-          border: `1px solid ${T.border}`,
-          borderRadius: 10,
-          padding: "10px 16px",
-          marginBottom: 14,
-          boxShadow: T.shadow
-        }}
-      >
-        <div>
-          <div style={{ fontSize: 9.5, color: T.accent, fontWeight: 800, letterSpacing: "1px", textTransform: "uppercase" }}>
-            {lang === "bn" ? "ভিডিও লেকচার" : "ACTIVE LESSON VIDEO"}
-          </div>
-          <h3 style={{ fontSize: 13, fontWeight: 900, color: T.txt0, margin: "2px 0 0" }}>
-            {modules.find((m) => m.lessons.some((l) => l.id === activeLessonId))?.lessons.find((l) => l.id === activeLessonId)?.title || "1.3 Scopes and Scuttles Check"}
-          </h3>
-        </div>
-
-        {/* Dock Control Toggle */}
-        <button
-          onClick={() => setDockOnSide(!dockOnSide)}
-          style={{
-            background: T.bg2,
-            border: `1px solid ${T.border}`,
-            borderRadius: 8,
-            padding: "6px 12px",
-            color: T.accent,
-            fontSize: 10.5,
-            fontWeight: 800,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            outline: "none"
-          }}
-        >
-          {dockOnSide ? "🥞 Move Notes Below" : "📋 Dock Notes to Side"}
-        </button>
-      </div>
-
-      {/* Main Layout Area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        {dockOnSide ? (
-          /* Side-by-Side Split View */
-          <div style={{ flex: 1, display: "flex", gap: 14, minHeight: 0, paddingBottom: 6 }}>
-            {/* Left Column: Video player */}
-            <div style={{ flex: 1.3, display: "flex", flexDirection: "column", minWidth: 300, justifyContent: "flex-start" }}>
-              <div style={{ width: "100%", background: "#000", borderRadius: 12, overflow: "hidden", border: `1px solid ${T.border}`, boxShadow: T.shadow }}>
-                {renderVideoPlayer()}
-              </div>
-            </div>
-
-            {/* Right Column: Interactive Tabs panel */}
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 280 }}>
-              {renderTabsPanel(true)}
-            </div>
-          </div>
-        ) : (
-          /* Stacked View (Video on top, Tabs below) */
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
-            {/* Centered Video Player */}
-            <div style={{ width: "100%", maxWidth: "720px", margin: "0 auto", background: "#000", borderRadius: 12, overflow: "hidden", border: `1px solid ${T.border}`, boxShadow: T.shadow }}>
+      {isMobile ? (
+        <>
+          {/* Mobile: video pinned top, content scrolls behind the bottom sheet */}
+          <div className="min-h-0 flex-1 overflow-y-auto pb-32">
+            {topicHeader}
+            <div className="overflow-hidden rounded-xl border border-[var(--t-border)] bg-black shadow-[var(--t-shadow)]">
               {renderVideoPlayer()}
             </div>
-
-            {/* Bottom tabs block */}
-            {renderTabsPanel(false)}
           </div>
-        )}
-      </div>
+
+          {/* Mobile bottom sheet hosting the Notes/Transcript/Chat/Practice tabs */}
+          <motion.div
+            className="absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-2xl border border-b-0 border-[var(--t-border)] bg-[var(--t-bg1)] shadow-[0_-10px_36px_rgba(0,0,0,0.4)]"
+            style={{ height: sheetH }}
+            initial={false}
+            animate={{ y: snapOffsets[sheetSnap] }}
+            transition={{ type: "spring", damping: 32, stiffness: 320 }}
+            drag="y"
+            dragListener={false}
+            dragControls={sheetDragControls}
+            dragConstraints={{ top: snapOffsets.full, bottom: snapOffsets.peek }}
+            dragElastic={0.04}
+            dragMomentum={false}
+            onDragEnd={(_, info) => {
+              const projected =
+                snapOffsets[sheetSnap] + info.offset.y + info.velocity.y * 0.12;
+              let best: SheetSnap = sheetSnap;
+              let bestDistance = Infinity;
+              (Object.keys(snapOffsets) as SheetSnap[]).forEach((key) => {
+                const distance = Math.abs(projected - snapOffsets[key]);
+                if (distance < bestDistance) {
+                  bestDistance = distance;
+                  best = key;
+                }
+              });
+              setSheetSnap(best);
+            }}
+          >
+            <div
+              onPointerDown={(e) => sheetDragControls.start(e)}
+              className="flex shrink-0 cursor-grab touch-none items-center justify-center pb-1.5 pt-2.5 active:cursor-grabbing"
+              aria-label={lang === "bn" ? "প্যানেল টানুন" : "Drag panel"}
+            >
+              <div className="h-1.5 w-10 rounded-full bg-[var(--t-bg4)]" />
+            </div>
+            {renderTabsPanel("sheet")}
+          </motion.div>
+        </>
+      ) : (
+        <>
+          {topicHeader}
+
+          {/* Main Layout Area */}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {dockOnSide ? (
+              /* Side-by-Side Split View */
+              <div className="flex min-h-0 flex-1 gap-3.5 pb-1.5">
+                {/* Left Column: Video player */}
+                <div className="flex min-w-[300px] flex-[1.3] flex-col justify-start">
+                  <div className="w-full overflow-hidden rounded-xl border border-[var(--t-border)] bg-black shadow-[var(--t-shadow)]">
+                    {renderVideoPlayer()}
+                  </div>
+                </div>
+
+                {/* Right Column: Interactive Tabs panel */}
+                <div className="flex min-w-[280px] flex-1 flex-col">
+                  {renderTabsPanel("side")}
+                </div>
+              </div>
+            ) : (
+              /* Stacked View (Video on top, Tabs below) */
+              <div className="flex flex-1 flex-col gap-3">
+                {/* Centered Video Player */}
+                <div className="mx-auto w-full max-w-[720px] overflow-hidden rounded-xl border border-[var(--t-border)] bg-black shadow-[var(--t-shadow)]">
+                  {renderVideoPlayer()}
+                </div>
+
+                {/* Bottom tabs block */}
+                {renderTabsPanel("stacked")}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,7 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { i18n, assessments, fallbackAssessment } from "@/lib/i18n/messages";
+import { themeVars } from "@/lib/ui/theme-vars";
 import type { AssessmentQuestion, Track } from "@/types/ui";
 import type { UiTier } from "@/lib/tier/config";
 
@@ -35,6 +37,7 @@ export default function Onboarding({
   isDark: boolean;
 }) {
   const [step, setStep] = useState(0);
+  const [direction, setDirection] = useState(1);
   const defaultTrackId = trackOptions[0]?.id || "";
   const [data, setData] = useState({
     goal: "",
@@ -48,12 +51,17 @@ export default function Onboarding({
 
   const t = i18n[data.lang] || parentT;
 
+  const goTo = (next: number) => {
+    setDirection(next > step ? 1 : -1);
+    setStep(next);
+  };
+
   const goals = [
     {
       id: "job",
       icon: "💼",
       titleEn: "Secure a Remote or Global IT Job",
-      titleBn: "রিমোট ক্যারিয়ার বা গ্লোবাল আইটি চাকরি",
+      titleBn: "রিমোট ক্যারিয়ার বা গ্লোবাল আইটি চাকরি",
       subEn: "Position talent globally",
       subBn: "বিশ্বমানের কাজের সুযোগ"
     },
@@ -77,7 +85,7 @@ export default function Onboarding({
       id: "explore",
       icon: "🔭",
       titleEn: "Explore Technical Ecosystems",
-      titleBn: "কারিগরি বিষয়ে ধারণা নেওয়া",
+      titleBn: "কারিগরি বিষয়ে ধারণা নেওয়া",
       subEn: "Satisfy general curiosity",
       subBn: "কৌতূহল মেটানো ও বেসিক শেখা"
     }
@@ -90,7 +98,7 @@ export default function Onboarding({
       titleEn: "Beginner",
       titleBn: "শিক্ষানবিস (Beginner)",
       subEn: "Little or no structural background",
-      subBn: "পূর্ব অভিজ্ঞতা ছাড়া প্রথম কোডিং"
+      subBn: "পূর্ব অভিজ্ঞতা ছাড়া প্রথম কোডিং"
     },
     {
       id: "some",
@@ -98,7 +106,7 @@ export default function Onboarding({
       titleEn: "Intermediate / Self-Taught",
       titleBn: "মাধ্যমিক (Self-Taught)",
       subEn: "Understand fundamentals and variables",
-      subBn: "বেসিক ও ভ্যারিয়েবলের ধারণা আছে"
+      subBn: "বেসিক ও ভ্যারিয়েবলের ধারণা আছে"
     },
     {
       id: "pro",
@@ -106,7 +114,7 @@ export default function Onboarding({
       titleEn: "Professional",
       titleBn: "পেশাদার ডেভেলপার (Professional)",
       subEn: "Familiar with structural compilers, APIs and Git",
-      subBn: "সার্ভার, এপিআই ও গিট নিয়ে কাজের অভিজ্ঞতা"
+      subBn: "সার্ভার, এপিআই ও গিট নিয়ে কাজের অভিজ্ঞতা"
     }
   ];
 
@@ -127,15 +135,15 @@ export default function Onboarding({
 
   const steps = [
     // Step 0: Language Select
-    <div style={{ textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
-      <div style={{ fontSize: 44, marginBottom: 18 }}>🌐</div>
-      <h2 style={{ fontSize: 24, fontWeight: 900, color: T.txt0, marginBottom: 10 }}>
+    <div key="lang" className="mx-auto w-full max-w-md text-center">
+      <div className="mb-4 text-5xl">🌐</div>
+      <h2 className="mb-2.5 text-2xl font-black text-[var(--t-txt0)]">
         Choose Language / ভাষা নির্বাচন করুন
       </h2>
-      <p style={{ color: T.txt1, marginBottom: 36, fontSize: 13 }}>
+      <p className="mb-8 text-[13px] text-[var(--t-txt1)]">
         Toggle translations anytime inside the workshop platform
       </p>
-      <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:gap-4">
         {[
           ["en", "English", "🇬🇧"],
           ["bn", "বাংলা", "🇧🇩"]
@@ -144,60 +152,46 @@ export default function Onboarding({
             key={id}
             onClick={() => {
               setData((p) => ({ ...p, lang: id }));
-              setTimeout(() => setStep(1), 250);
+              setTimeout(() => goTo(1), 250);
             }}
-            style={{
-              padding: "24px 34px",
-              borderRadius: 12,
-              background: T.bg2,
-              border: `2px solid ${data.lang === id ? T.accent : T.border}`,
-              cursor: "pointer",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 12,
-              flex: 1,
-              transition: "border 0.15s"
-            }}
+            className={`flex flex-1 cursor-pointer flex-col items-center gap-3 rounded-xl border-2 bg-[var(--t-bg2)] px-8 py-5 transition-colors sm:py-6 ${
+              data.lang === id ? "border-[var(--t-accent)]" : "border-[var(--t-border)]"
+            }`}
           >
-            <span style={{ fontSize: 32 }}>{flag}</span>
-            <span style={{ fontSize: 16, fontWeight: 800, color: T.txt0 }}>{label}</span>
+            <span className="text-3xl">{flag}</span>
+            <span className="text-base font-extrabold text-[var(--t-txt0)]">{label}</span>
           </button>
         ))}
       </div>
     </div>,
 
     // Step 1: Goal Select
-    <div style={{ maxWidth: 560, margin: "0 auto" }}>
-      <h2 style={{ fontSize: 22, fontWeight: 900, color: T.txt0, marginBottom: 8, textAlign: "center" }}>
+    <div key="goal" className="mx-auto w-full max-w-xl">
+      <h2 className="mb-2 text-center text-[22px] font-black text-[var(--t-txt0)]">
         {t.onboarding1}
       </h2>
-      <p style={{ color: T.txt1, marginBottom: 28, textAlign: "center", fontSize: 13 }}>
+      <p className="mb-6 text-center text-[13px] text-[var(--t-txt1)]">
         Your personal syllabus adapts to direct targets
       </p>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {goals.map((g) => (
           <button
             key={g.id}
             onClick={() => {
               setData((p) => ({ ...p, goal: g.id }));
-              setStep(2);
+              goTo(2);
             }}
-            style={{
-              padding: "20px 16px",
-              borderRadius: 12,
-              background: data.goal === g.id ? T.accentDim : T.bg2,
-              border: `2px solid ${data.goal === g.id ? T.accent : T.border}`,
-              cursor: "pointer",
-              textAlign: "left",
-              outline: "none"
-            }}
+            className={`cursor-pointer rounded-xl border-2 px-4 py-5 text-left outline-none ${
+              data.goal === g.id
+                ? "border-[var(--t-accent)] bg-[var(--t-accent-dim)]"
+                : "border-[var(--t-border)] bg-[var(--t-bg2)]"
+            }`}
           >
-            <div style={{ fontSize: 26, marginBottom: 8 }}>{g.icon}</div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: T.txt0, marginBottom: 4, lineHeight: 1.4 }}>
+            <div className="mb-2 text-[26px]">{g.icon}</div>
+            <div className="mb-1 text-[13px] font-extrabold leading-snug text-[var(--t-txt0)]">
               {data.lang === "bn" ? g.titleBn : g.titleEn}
             </div>
-            <div style={{ fontSize: 11, color: T.txt1, lineHeight: 1.3 }}>
+            <div className="text-[11px] leading-tight text-[var(--t-txt1)]">
               {data.lang === "bn" ? g.subBn : g.subEn}
             </div>
           </button>
@@ -206,39 +200,33 @@ export default function Onboarding({
     </div>,
 
     // Step 2: Experience Lvl Select
-    <div style={{ maxWidth: 520, margin: "0 auto" }}>
-      <h2 style={{ fontSize: 22, fontWeight: 900, color: T.txt0, marginBottom: 8, textAlign: "center" }}>
+    <div key="level" className="mx-auto w-full max-w-lg">
+      <h2 className="mb-2 text-center text-[22px] font-black text-[var(--t-txt0)]">
         {t.onboarding2}
       </h2>
-      <p style={{ color: T.txt1, marginBottom: 28, textAlign: "center", fontSize: 13 }}>
+      <p className="mb-6 text-center text-[13px] text-[var(--t-txt1)]">
         Helps us position your conceptual baseline starting points
       </p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div className="flex flex-col gap-3">
         {levels.map((l) => (
           <button
             key={l.id}
             onClick={() => {
               setData((p) => ({ ...p, level: l.id }));
-              setStep(3);
+              goTo(3);
             }}
-            style={{
-              padding: "16px 20px",
-              borderRadius: 12,
-              background: data.level === l.id ? T.accentDim : T.bg2,
-              border: `2px solid ${data.level === l.id ? T.accent : T.border}`,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              textAlign: "left"
-            }}
+            className={`flex cursor-pointer items-center gap-4 rounded-xl border-2 px-5 py-4 text-left ${
+              data.level === l.id
+                ? "border-[var(--t-accent)] bg-[var(--t-accent-dim)]"
+                : "border-[var(--t-border)] bg-[var(--t-bg2)]"
+            }`}
           >
-            <span style={{ fontSize: 28 }}>{l.icon}</span>
+            <span className="text-[28px]">{l.icon}</span>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: T.txt0 }}>
+              <div className="text-sm font-extrabold text-[var(--t-txt0)]">
                 {data.lang === "bn" ? l.titleBn : l.titleEn}
               </div>
-              <div style={{ fontSize: 11, color: T.txt1, marginTop: 3 }}>
+              <div className="mt-0.5 text-[11px] text-[var(--t-txt1)]">
                 {data.lang === "bn" ? l.subBn : l.subEn}
               </div>
             </div>
@@ -248,31 +236,21 @@ export default function Onboarding({
     </div>,
 
     // Step 3: Choose Track (10 items, no cost listed, highlighting completed tracks)
-    <div style={{ maxWidth: 640, margin: "0 auto" }}>
-      <h2 style={{ fontSize: 22, fontWeight: 900, color: T.txt0, marginBottom: 6, textAlign: "center" }}>
+    <div key="track" className="mx-auto w-full max-w-2xl">
+      <h2 className="mb-1.5 text-center text-[22px] font-black text-[var(--t-txt0)]">
         {t.onboarding3}
       </h2>
-      <p style={{ color: T.txt1, marginBottom: 24, textAlign: "center", fontSize: 13 }}>
+      <p className="mb-5 text-center text-[13px] text-[var(--t-txt1)]">
         Toggle tracks seamlessly at any time in your dashboard
       </p>
       {trackOptions.length === 0 ? (
-        <p style={{ color: T.amber, textAlign: "center", fontSize: 13 }}>
+        <p className="text-center text-[13px] text-[var(--t-amber)]">
           {data.lang === "bn"
             ? "কোনো প্রকাশিত ট্র্যাক নেই। Supabase-এ সিড মাইগ্রেশন চালান।"
             : "No published tracks found. Run the seed migration in Supabase."}
         </p>
       ) : null}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 12,
-          maxHeight: "360px",
-          overflowY: "auto",
-          paddingRight: 6,
-          marginBottom: 20
-        }}
-      >
+      <div className="mb-5 grid max-h-[55vh] grid-cols-1 gap-3 overflow-y-auto pr-1.5 sm:grid-cols-2">
         {trackOptions.map((tr) => (
           <button
             key={tr.id}
@@ -283,47 +261,28 @@ export default function Onboarding({
                 trackSlug: tr.slug || tr.id,
                 trackTier: (tr.tier ?? 1) as UiTier
               }));
-              setStep(4);
+              goTo(4);
             }}
-            style={{
-              padding: "16px",
-              borderRadius: 12,
-              background: data.trackId === tr.id ? T.accentDim : T.bg2,
-              border: `2px solid ${
-                data.trackId === tr.id
-                  ? T.accent
-                  : tr.completed
-                  ? "#00C8964d"
-                  : T.border
-              }`,
-              cursor: "pointer",
-              textAlign: "left",
-              position: "relative",
-              outline: "none"
-            }}
+            className={`relative cursor-pointer rounded-xl border-2 p-4 text-left outline-none ${
+              data.trackId === tr.id
+                ? "border-[var(--t-accent)] bg-[var(--t-accent-dim)]"
+                : tr.completed
+                ? "border-[#00C8964d] bg-[var(--t-bg2)]"
+                : "border-[var(--t-border)] bg-[var(--t-bg2)]"
+            }`}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-              <span style={{ fontSize: 24 }}>{tr.icon}</span>
+            <div className="mb-2 flex items-start justify-between">
+              <span className="text-2xl">{tr.icon}</span>
               {tr.completed && (
-                <span
-                  style={{
-                    background: "#00C8961c",
-                    color: T.accent,
-                    border: `1px solid ${T.accent}4d`,
-                    padding: "2px 6px",
-                    borderRadius: 6,
-                    fontSize: 9,
-                    fontWeight: 700
-                  }}
-                >
+                <span className="rounded-md border border-[var(--t-accent)]/30 bg-[#00C8961c] px-1.5 py-0.5 text-[9px] font-bold text-[var(--t-accent)]">
                   ✓ {data.lang === "bn" ? "সম্পন্ন" : "Completed"}
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 12, fontWeight: 800, color: T.txt0, lineHeight: 1.4, paddingRight: 12 }}>
+            <div className="pr-3 text-xs font-extrabold leading-snug text-[var(--t-txt0)]">
               {data.lang === "bn" ? tr.titleBn : tr.titleEn}
             </div>
-            <div style={{ fontSize: 11, color: T.accent, fontWeight: 700, marginTop: 6 }}>
+            <div className="mt-1.5 text-[11px] font-bold text-[var(--t-accent)]">
               {tr.isFree || tr.priceBdt === 0
                 ? data.lang === "bn"
                   ? "বিনামূল্যে"
@@ -336,82 +295,52 @@ export default function Onboarding({
     </div>,
 
     // Step 4: Tailored Assessment
-    <div style={{ maxWidth: 580, margin: "0 auto" }}>
-      <h2 style={{ fontSize: 21, fontWeight: 900, color: T.txt0, marginBottom: 8, textAlign: "center" }}>
+    <div key="assessment" className="mx-auto w-full max-w-xl">
+      <h2 className="mb-2 text-center text-[21px] font-black text-[var(--t-txt0)]">
         {t.onboarding4}
       </h2>
-      <p style={{ color: T.txt1, marginBottom: 12, textAlign: "center", fontSize: 13 }}>
+      <p className="mb-3 text-center text-[13px] text-[var(--t-txt1)]">
         {data.lang === "bn"
           ? "আপনার নির্বাচিত ট্র্যাকের জন্য একটি সংক্ষিপ্ত ৩ মিনিটের মূল্যায়ন পরীক্ষা"
           : "Quick baseline appraisal customized for your selected study track"}
       </p>
 
       {/* Track confirmation text */}
-      <div
-        style={{
-          background: T.accentDim,
-          border: `1px solid ${T.accent}4d`,
-          borderRadius: 8,
-          padding: "10px 14px",
-          marginBottom: 18,
-          fontSize: 12,
-          color: T.accent,
-          lineHeight: 1.4
-        }}
-      >
+      <div className="mb-4 rounded-lg border border-[var(--t-accent)]/30 bg-[var(--t-accent-dim)] px-3.5 py-2.5 text-xs leading-snug text-[var(--t-accent)]">
         ✦{" "}
         {data.lang === "bn"
           ? `নির্বাচিত পথ: ${trackOptions.find((tr) => tr.id === data.trackId)?.titleBn || "জেনারেল"}. এটি আপনার লেকচার সূচীকে সাজাবে।`
           : `Active path: ${trackOptions.find((tr) => tr.id === data.trackId)?.titleEn || "Your track"}.`}
       </div>
 
-      <div style={{ maxHeight: "310px", overflowY: "auto", paddingRight: 4, marginBottom: 18 }}>
+      <div className="mb-4 max-h-[45vh] overflow-y-auto pr-1">
         {activeQuestions.map((q, qi) => (
           <div
             key={qi}
-            style={{
-              background: T.bg2,
-              border: `1px solid ${T.border}`,
-              borderRadius: 12,
-              padding: "14px 16px",
-              marginBottom: 12
-            }}
+            className="mb-3 rounded-xl border border-[var(--t-border)] bg-[var(--t-bg2)] px-4 py-3.5"
           >
-            <div style={{ fontSize: 12.5, fontWeight: 800, color: T.txt0, marginBottom: 12, lineHeight: 1.5 }}>
+            <div className="mb-3 text-[12.5px] font-extrabold leading-normal text-[var(--t-txt0)]">
               {qi + 1}. {data.lang === "bn" ? q.qBn : q.qEn}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div className="flex flex-col gap-1.5">
               {(data.lang === "bn" ? q.optsBn : q.optsEn).map((opt, oi) => {
                 const isSelected = quizAns[qi] === oi;
                 return (
                   <button
                     key={oi}
                     onClick={() => setQuizAns((p) => ({ ...p, [qi]: oi }))}
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      padding: "8px 12px",
-                      background: isSelected ? T.accentDim : T.bg3,
-                      border: `1px solid ${isSelected ? T.accent : T.border}`,
-                      borderRadius: 8,
-                      cursor: "pointer",
-                      color: T.txt0,
-                      fontSize: 11.5,
-                      textAlign: "left",
-                      outline: "none"
-                    }}
+                    className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg border px-3 py-2 text-left text-[11.5px] text-[var(--t-txt0)] outline-none ${
+                      isSelected
+                        ? "border-[var(--t-accent)] bg-[var(--t-accent-dim)]"
+                        : "border-[var(--t-border)] bg-[var(--t-bg3)]"
+                    }`}
                   >
                     <div
-                      style={{
-                        width: 14,
-                        height: 14,
-                        borderRadius: "50%",
-                        border: `1.5px solid ${isSelected ? T.accent : T.borderHi}`,
-                        background: isSelected ? T.accent : "none",
-                        flexShrink: 0
-                      }}
+                      className={`size-3.5 shrink-0 rounded-full border-[1.5px] ${
+                        isSelected
+                          ? "border-[var(--t-accent)] bg-[var(--t-accent)]"
+                          : "border-[var(--t-border-hi)]"
+                      }`}
                     />
                     {opt}
                   </button>
@@ -422,7 +351,7 @@ export default function Onboarding({
         ))}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div className="flex flex-col gap-2">
         <button
           onClick={() =>
             onComplete({
@@ -435,16 +364,7 @@ export default function Onboarding({
               assessmentPercentage
             })
           }
-          style={{
-            background: T.accent,
-            border: "none",
-            borderRadius: 10,
-            padding: "12px",
-            fontSize: 13,
-            fontWeight: 800,
-            color: "#000",
-            cursor: "pointer"
-          }}
+          className="min-h-11 cursor-pointer rounded-[10px] border-none bg-[var(--t-accent)] p-3 text-[13px] font-extrabold text-black"
         >
           {t.startAssessment}
         </button>
@@ -460,15 +380,7 @@ export default function Onboarding({
               skippedAssessment: true
             })
           }
-          style={{
-            background: "none",
-            border: `1px solid ${T.border}`,
-            borderRadius: 10,
-            padding: "10px",
-            fontSize: 12,
-            color: T.txt1,
-            cursor: "pointer"
-          }}
+          className="min-h-11 cursor-pointer rounded-[10px] border border-[var(--t-border)] bg-transparent p-2.5 text-xs text-[var(--t-txt1)]"
         >
           {t.skipAssessment}
         </button>
@@ -480,77 +392,70 @@ export default function Onboarding({
 
   return (
     <div
-      style={{
-        minHeight: "100vh",
-        background: T.bg0,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "24px 16px",
-        fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif"
-      }}
+      style={themeVars(T)}
+      className="flex min-h-screen flex-col items-center justify-center bg-[var(--t-bg0)] px-4 py-6 font-[family-name:'DM_Sans','Segoe_UI',system-ui,sans-serif]"
     >
       {/* Brand logo */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
-        <div
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: 8,
-            background: T.accent,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 16,
-            fontWeight: 950,
-            color: "#000"
-          }}
-        >
+      <div className="mb-6 flex items-center gap-2.5 sm:mb-8">
+        <div className="flex size-[34px] items-center justify-center rounded-lg bg-[var(--t-accent)] text-base font-black text-black">
           F
         </div>
-        <span style={{ fontSize: 21, fontWeight: 950, color: T.txt0, letterSpacing: -0.6 }}>{t.brand}</span>
+        <span className="text-[21px] font-black tracking-tight text-[var(--t-txt0)]">{t.brand}</span>
       </div>
 
       {/* Progress navigation pills */}
-      <div style={{ display: "flex", gap: 6, marginBottom: 30, flexWrap: "wrap", justifyContent: "center" }}>
+      <div className="mb-6 flex flex-wrap items-center justify-center gap-1.5 sm:mb-8">
         {stepLabels.map((s, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div key={i} className="flex items-center gap-1.5">
             <div
-              style={{
-                borderRadius: 14,
-                padding: "4px 10px",
-                background: i < step ? T.accent : i === step ? T.bg3 : T.bg2,
-                border: `1.5px solid ${i <= step ? T.accent : T.border}`,
-                fontSize: 10,
-                color: i < step ? "#000" : i === step ? T.accent : T.txt2,
-                fontWeight: 700,
-                whiteSpace: "nowrap"
-              }}
+              className={`whitespace-nowrap rounded-2xl border-[1.5px] px-2.5 py-1 text-[10px] font-bold ${
+                i < step
+                  ? "border-[var(--t-accent)] bg-[var(--t-accent)] text-black"
+                  : i === step
+                  ? "border-[var(--t-accent)] bg-[var(--t-bg3)] text-[var(--t-accent)]"
+                  : "border-[var(--t-border)] bg-[var(--t-bg2)] text-[var(--t-txt2)]"
+              }`}
             >
               {s}
             </div>
-            {i < 4 && <div style={{ width: 12, height: 1.5, background: i < step ? T.accent : T.border }} />}
+            {i < 4 && (
+              <div
+                className={`h-[1.5px] w-3 ${i < step ? "bg-[var(--t-accent)]" : "bg-[var(--t-border)]"}`}
+              />
+            )}
           </div>
         ))}
       </div>
 
-      {/* Screen body container */}
-      <div style={{ width: "100%", maxWidth: 640 }}>{steps[step]}</div>
+      {/* Screen body container — swipe right to go back on touch devices */}
+      <div className="w-full max-w-2xl overflow-x-hidden">
+        <AnimatePresence mode="wait" custom={direction} initial={false}>
+          <motion.div
+            key={step}
+            custom={direction}
+            initial={{ opacity: 0, x: direction > 0 ? 48 : -48 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: direction > 0 ? -48 : 48 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+            drag={step > 0 ? "x" : false}
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.15}
+            onDragEnd={(_, info) => {
+              if (step > 0 && (info.offset.x > 90 || info.velocity.x > 600)) {
+                goTo(step - 1);
+              }
+            }}
+          >
+            {steps[step]}
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
       {/* Back flow modifier trigger */}
       {step > 0 && (
         <button
-          onClick={() => setStep((s) => s - 1)}
-          style={{
-            marginTop: 20,
-            background: "none",
-            border: "none",
-            color: T.txt1,
-            fontSize: 12,
-            cursor: "pointer",
-            outline: "none"
-          }}
+          onClick={() => goTo(step - 1)}
+          className="mt-5 min-h-11 cursor-pointer border-none bg-transparent text-xs text-[var(--t-txt1)] outline-none"
         >
           ← Back
         </button>
