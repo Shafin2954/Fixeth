@@ -17,7 +17,6 @@ import {
   ClipboardList,
   Upload,
   UsersRound,
-  Wrench,
   X
 } from "lucide-react";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
@@ -119,13 +118,6 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       label: t.jobs,
       icon: Briefcase,
       match: (p) => p === "/jobs"
-    },
-    {
-      id: "tools",
-      href: "/tools",
-      label: t.tools,
-      icon: Wrench,
-      match: (p) => p === "/tools"
     },
     // Tier visibility for these is handled by tierAllowsScreen below; here we
     // only respect the user's content-visibility preferences.
@@ -285,6 +277,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                     className="block p-2.5 text-[13px] text-[var(--t-txt1)] no-underline"
                   >
                     {t.profilePreferences}
+                  </Link>
+                  <Link
+                    href="/about"
+                    onClick={() => setProfileOpen(false)}
+                    className="block p-2.5 text-[13px] text-[var(--t-txt1)] no-underline"
+                  >
+                    {lang === "bn" ? "আমাদের সম্পর্কে" : "About"}
                   </Link>
                   <ProfileSignOutButton />
                 </div>

@@ -214,6 +214,7 @@ type AppThemeContextValue = {
   authUser: SupabaseUser;
   profileRow: UserProfileRow | null;
   uiTier: UiTier;
+  userRole: string | null;
   user: AppUserProfile;
   setUser: React.Dispatch<React.SetStateAction<AppUserProfile>>;
   preferences: UserPreferences;
@@ -365,6 +366,7 @@ export function AppThemeProvider({
       authUser,
       profileRow,
       uiTier,
+      userRole: profileRow?.role ?? null,
       user,
       setUser,
       preferences,

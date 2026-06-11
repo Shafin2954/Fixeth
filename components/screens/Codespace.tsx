@@ -26,7 +26,7 @@ const THEME_CONFIGS = {
 const STARTER_FILES: { [key: string]: string } = {
   "main.py": `# Real Python runs in your browser (Pyodide).\n# Type 'python main.py' in the terminal to execute.\n\nfor i in range(1, 6):\n    print(f"Line {i}: hello from Fixeth")\n\ntotal = sum(range(1, 101))\nprint("Sum 1..100 =", total)`,
   "utils.py": `def mean(data):\n    return sum(data) / len(data)\n\nif __name__ == "__main__":\n    print(mean([87, 92, 78, 95, 82]))`,
-  "README.md": `# Fixeth Codespace\nA CS50-style in-browser IDE.\n\n- Edit files on the left, run Python in the terminal.\n- Click "Connect GitHub" to load files from your own repositories.`
+  "README.md": `# Fixeth Codespace\nAn in-browser IDE.\n\n- Edit files on the left, run Python in the terminal.\n- Click "Connect GitHub" to load files from your own repositories.`
 };
 
 export default function CodeSpaceScreen({ T, t, preferences }: { T: any; t: any; preferences: UserPreferences }) {
@@ -41,6 +41,16 @@ export default function CodeSpaceScreen({ T, t, preferences }: { T: any; t: any;
   const [tokenInput, setTokenInput] = useState("");
   const [ghError, setGhError] = useState<string | null>(null);
   const [ghLoading, setGhLoading] = useState(false);
+
+  const [isMobile, setIsMobile] = useState(false);
+  const [filePanelOpen, setFilePanelOpen] = useState(false);
+
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 768);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   const [termHistory, setTermHistory] = useState<string[]>([
     "Fixeth codespace ready. Real Python (Pyodide) compiled to WebAssembly.",
@@ -220,7 +230,7 @@ export default function CodeSpaceScreen({ T, t, preferences }: { T: any; t: any;
       {/* Toolbar */}
       <div style={{ height: 40, background: T.navBg, borderBottom: `1px solid ${T.border}`, padding: "0 14px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontSize: 13, fontWeight: 900, color: T.txt0 }}>Fixeth CS50 Codespace</span>
+          <span style={{ fontSize: 13, fontWeight: 900, color: T.txt0 }}>Fixeth Codespace</span>
           <span style={{ background: ghUser ? "#00C8961a" : T.bg3, color: ghUser ? T.accent : T.txt1, border: `1px solid ${ghUser ? T.accent + "4d" : T.border}`, borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>
             {ghUser ? `● ${ghUser.login}` : "Local workspace"}
           </span>
@@ -242,9 +252,24 @@ export default function CodeSpaceScreen({ T, t, preferences }: { T: any; t: any;
       </div>
 
       {/* Main area */}
-      <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
+      <div style={{ flex: 1, display: "flex", minHeight: 0, position: "relative" }}>
+        {/* Mobile overlay */}
+        {isMobile && filePanelOpen && (
+          <div onClick={() => setFilePanelOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 50 }} />
+        )}
+
+        {/* Mobile toggle button */}
+        {isMobile && !filePanelOpen && (
+          <button
+            onClick={() => setFilePanelOpen(true)}
+            style={{ position: "absolute", top: 10, left: 10, zIndex: 45, background: T.bg2, border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", color: T.txt1, cursor: "pointer", fontSize: 12, fontWeight: 700 }}
+          >
+            📁 Files
+          </button>
+        )}
+
         {/* Sidebar: repos + files */}
-        <div style={{ width: 220, background: T.bg1, borderRight: `1px solid ${T.border}`, flexShrink: 0, display: "flex", flexDirection: "column" }}>
+        <div style={{ width: 220, background: T.bg1, borderRight: `1px solid ${T.border}`, flexShrink: 0, display: isMobile ? (filePanelOpen ? "flex" : "none") : "flex", flexDirection: "column", ...(isMobile ? { position: "fixed", top: 40, bottom: 0, left: 0, zIndex: 51 } : {}) }}>
           {ghUser && (
             <div style={{ borderBottom: `1px solid ${T.border}`, maxHeight: 180, overflowY: "auto" }}>
               <div style={{ padding: "10px 14px 6px", fontSize: 10, color: T.txt1, fontWeight: 700, letterSpacing: 1 }}>

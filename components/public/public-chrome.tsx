@@ -6,8 +6,8 @@ import { Moon, Sun } from "lucide-react";
 import { usePublicPrefs } from "@/components/public/public-lang";
 
 const NAV_COPY = {
-  en: { home: "Home", pricing: "Pricing", about: "About", login: "Log in", signup: "Sign up free" },
-  bn: { home: "হোম", pricing: "মূল্য", about: "আমাদের কথা", login: "লগ ইন", signup: "ফ্রি সাইন আপ" }
+  en: { home: "Home", about: "About", login: "Log in", signup: "Sign up free" },
+  bn: { home: "হোম", about: "আমাদের কথা", login: "লগ ইন", signup: "ফ্রি সাইন আপ" }
 };
 
 const FOOTER_COPY = {
@@ -33,7 +33,6 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
 
   const links = [
     { href: "/", label: nav.home },
-    { href: "/pricing", label: nav.pricing },
     { href: "/about", label: nav.about }
   ];
 
@@ -42,9 +41,7 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-neutral-200 bg-white/85 backdrop-blur-md dark:border-neutral-800 dark:bg-[#0B0B0F]/85">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
           <Link href="/" className="flex items-center gap-2.5 no-underline">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-[#00C896] text-base font-black text-black">
-              F
-            </span>
+            <img src="/logo.svg" alt="Fixeth" className="size-8 rounded-lg object-contain" />
             <span className="text-lg font-black tracking-tight text-neutral-900 dark:text-white">
               Fixeth
             </span>
@@ -119,9 +116,7 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-10 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-xs">
             <div className="flex items-center gap-2.5">
-              <span className="flex size-7 items-center justify-center rounded-md bg-[#00C896] text-sm font-black text-black">
-                F
-              </span>
+              <img src="/logo.svg" alt="Fixeth" className="size-7 rounded-md object-contain" />
               <span className="text-base font-black text-neutral-900 dark:text-white">Fixeth</span>
             </div>
             <p className="mt-3 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
@@ -135,9 +130,6 @@ export function PublicChrome({ children }: { children: React.ReactNode }) {
                 {footer.product}
               </div>
               <div className="flex flex-col gap-2">
-                <Link href="/pricing" className="text-sm text-neutral-600 no-underline dark:text-neutral-300">
-                  {nav.pricing}
-                </Link>
                 <Link href="/signup" className="text-sm text-neutral-600 no-underline dark:text-neutral-300">
                   {nav.signup}
                 </Link>

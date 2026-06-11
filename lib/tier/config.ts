@@ -10,7 +10,6 @@ export const NAV_SCREEN_IDS = [
   "quiz",
   "submissions",
   "codespace",
-  "tools",
   "mentor",
   "community",
   "certs"
@@ -34,7 +33,6 @@ export const TIER_NAV_SCREENS: Record<UiTier, NavScreenId[]> = {
     "quiz",
     "submissions",
     "codespace",
-    "tools",
     "mentor",
     "community",
     "certs"

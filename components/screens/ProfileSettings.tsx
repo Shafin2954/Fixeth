@@ -42,6 +42,7 @@ export default function ProfileSettingsScreen({
   isDark,
   user,
   preferences,
+  userRole,
   initialTab,
   onBack,
   onSaveUser,
@@ -58,6 +59,7 @@ export default function ProfileSettingsScreen({
   isDark: boolean;
   user: UserProfile;
   preferences: UserPreferences;
+  userRole?: string | null;
   initialTab: any;
   onBack: () => void;
   onSaveUser: (nextUser: UserProfile) => void;
@@ -244,6 +246,32 @@ export default function ProfileSettingsScreen({
           {tabButton("credentials", lang === "bn" ? "সার্টিফিকেট ও প্রাইভেসী" : "Credentials & Privacy", <Award size={14} />)}
           {tabButton("data", lang === "bn" ? "সিস্টেম ও ডাটা সেটিংস" : "System & Data Controls", <Database size={14} />)}
         </div>
+
+        {/* Admin Panel access — only for platform_admin */}
+        {activeTab === "profile" && userRole === "platform_admin" && (
+          <div style={{ marginBottom: 14 }}>
+            <a
+              href="/admin"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 8,
+                background: T.accentDim,
+                border: `1px solid ${T.accent}`,
+                borderRadius: 10,
+                padding: "10px 18px",
+                color: T.accent,
+                fontWeight: 800,
+                fontSize: 13,
+                textDecoration: "none",
+                transition: "all 0.15s ease"
+              }}
+            >
+              <ShieldCheck size={16} />
+              {lang === "bn" ? "অ্যাডমিন প্যানেল" : "Admin Panel"}
+            </a>
+          </div>
+        )}
 
         {/* ----------------- TAB 1: IDENTITY & REGIONAL DIVISION ----------------- */}
         {activeTab === "profile" && (

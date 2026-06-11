@@ -37,6 +37,7 @@ function ProfileSettingsContent() {
     setPreferences,
     setLang,
     setIsDark,
+    userRole,
     DEFAULT_USER,
     DEFAULT_PREFERENCES,
     normalizePreferences
@@ -50,6 +51,7 @@ function ProfileSettingsContent() {
       isDark={isDark}
       user={user}
       preferences={preferences}
+      userRole={userRole}
       initialTab={initialTab}
       onBack={() => router.push("/dashboard")}
       onSaveUser={setUser}

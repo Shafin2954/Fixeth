@@ -111,7 +111,7 @@ export default function DashboardScreen({
       <div style={themeVars(T)} className="flex-1 overflow-y-auto bg-[var(--t-bg0)]">
         <style>{SHIMMER_CSS}</style>
 
-        <div className="mx-auto max-w-[1040px] px-4 pb-10 pt-5">
+        <div className="mx-auto max-w-[1360px] px-4 pb-10 pt-5">
           <div
             style={{ background: `linear-gradient(135deg, ${T.bg2} 0%, ${T.accent}0d 100%)` }}
             className="mb-5 overflow-hidden rounded-[14px] border border-[var(--t-border)] p-6 shadow-[var(--t-shadow)]"
@@ -368,7 +368,7 @@ export default function DashboardScreen({
 
   return (
     <div style={themeVars(T)} className="flex-1 overflow-y-auto bg-[var(--t-bg0)]">
-      <div className="mx-auto max-w-[1040px] px-4 pb-10 pt-5">
+      <div className="mx-auto max-w-[1360px] px-4 pb-10 pt-5">
 
         {/* Personalized Welcome Banner */}
         <div

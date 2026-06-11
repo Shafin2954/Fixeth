@@ -15,6 +15,7 @@ export type UserProfileRow = {
   onboarding_complete: boolean | null;
   ui_tier: number | null;
   streak: number | null;
+  role: string | null;
 };
 
 export type AppUserProfile = {
@@ -48,7 +49,7 @@ export class ProfileQueryError extends Error {
 }
 
 const PROFILE_SELECT =
-  "id,email,name,avatar_url,preferred_language,preferred_theme,goal,experience_level,onboarding_complete,ui_tier,streak";
+  "id,email,name,avatar_url,preferred_language,preferred_theme,goal,experience_level,onboarding_complete,ui_tier,streak,role";
 
 export function getDisplayName(authUser: SupabaseUser, row?: UserProfileRow | null) {
   return (

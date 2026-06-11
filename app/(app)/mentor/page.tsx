@@ -1,5 +1,4 @@
 "use client";
-
 import AIMentorScreen from "@/components/screens/AIMentor";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
 import { useCourse } from "@/components/providers/course-provider";

@@ -5,30 +5,29 @@ import { motion } from "framer-motion";
 import { Globe2, GraduationCap, ArrowRight } from "lucide-react";
 import { usePublicPrefs } from "@/components/public/public-lang";
 
-// TODO: replace placeholder teammate / lecturer names before the demo.
 const TEAM = [
+  {
+    initial: "J",
+    nameEn: "Jawat Al Sovon",
+    nameBn: "জাওয়াত আল সভন",
+    roleEn: "Product, mobile UI & design · IBA, DU",
+    roleBn: "প্রোডাক্ট, মোবাইল UI ও ডিজাইন · আইবিএ, ঢাবি",
+    color: "#3AA0FF"
+  },
   {
     initial: "S",
     nameEn: "Shafin Ahmed",
     nameBn: "শাফিন আহমেদ",
-    roleEn: "Full-stack & AI engineering",
-    roleBn: "ফুল-স্ট্যাক ও AI ইঞ্জিনিয়ারিং",
+    roleEn: "Full-stack & AI engineering · Applied Statistics & Data Science, DU",
+    roleBn: "ফুল-স্ট্যাক ও AI ইঞ্জিনিয়ারিং · ফলিত পরিসংখ্যান ও ডেটা বিজ্ঞান, ঢাবি",
     color: "#00C896"
   },
   {
-    initial: "T",
-    nameEn: "Teammate Two",
-    nameBn: "টিমমেট টু",
-    roleEn: "Product, mobile UI & design",
-    roleBn: "প্রোডাক্ট, মোবাইল UI ও ডিজাইন",
-    color: "#3AA0FF"
-  },
-  {
-    initial: "T",
-    nameEn: "Teammate Three",
-    nameBn: "টিমমেট থ্রি",
-    roleEn: "Data, scraping & content pipeline",
-    roleBn: "ডেটা, স্ক্র্যাপিং ও কনটেন্ট পাইপলাইন",
+    initial: "R",
+    nameEn: "Rafsan Jani",
+    nameBn: "রাফসান জানি",
+    roleEn: "Data, scraping & content pipeline · CSE, SUST",
+    roleBn: "ডেটা, স্ক্র্যাপিং ও কনটেন্ট পাইপলাইন · সিএসই, শাহজালাল বিজ্ঞান ও প্রযুক্তি বিশ্ববিদ্যালয়",
     color: "#F5A623"
   }
 ];
@@ -43,7 +42,7 @@ const COPY = {
     teamTitle: "The team",
     nrbTitle: "NRB collaboration",
     nrbBadge: "Non-Resident Bangladeshi network",
-    nrbName: "Dr. Lecturer Name — Budapest, Hungary",
+    nrbName: "S M Sadman Sakib Sayor — University of Debrecen, Hungary",
     nrbBody:
       "Our academic advisor is a Bangladeshi-origin university lecturer based in Hungary, reviewing curriculum structure and assessment design. The NRB diaspora — 15M+ strong — is both our advisory network and a launch market: diaspora parents sponsoring tech education for family back home.",
     ctaTitle: "Want to work with us?",
@@ -59,7 +58,7 @@ const COPY = {
     teamTitle: "আমাদের টিম",
     nrbTitle: "NRB সহযোগিতা",
     nrbBadge: "প্রবাসী বাংলাদেশি নেটওয়ার্ক",
-    nrbName: "ড. লেকচারার নাম — বুদাপেস্ট, হাঙ্গেরি",
+    nrbName: "এস এম সাদমান সাকিব সায়োর — ইউনিভার্সিটি অব ডেব্রেসেন, হাঙ্গেরি",
     nrbBody:
       "আমাদের একাডেমিক উপদেষ্টা হাঙ্গেরিতে কর্মরত একজন বাংলাদেশি বংশোদ্ভূত বিশ্ববিদ্যালয় লেকচারার, যিনি কারিকুলাম কাঠামো ও মূল্যায়ন ডিজাইন পর্যালোচনা করেন। ১.৫ কোটিরও বেশি প্রবাসী বাংলাদেশি আমাদের উপদেষ্টা নেটওয়ার্ক এবং লঞ্চ মার্কেট — প্রবাসী অভিভাবকরা দেশে পরিবারের জন্য টেক শিক্ষা স্পনসর করছেন।",
     ctaTitle: "আমাদের সাথে কাজ করতে চান?",

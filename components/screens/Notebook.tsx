@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Module, ChatMessage } from "@/types/ui";
 import { useAppTheme } from "@/components/providers/app-theme-provider";
 import { runPython, getPyodide } from "@/lib/notebook/pyodide";
@@ -49,6 +49,16 @@ export default function NotebookScreen({
 }) {
   const { authUser } = useAppTheme();
   const userId = authUser?.id ?? null;
+
+  const [isMobile, setIsMobile] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 768);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   const [docs, setDocs] = React.useState<NotebookDoc[]>([]);
   const [activeId, setActiveId] = React.useState<string | null>(null);
@@ -174,24 +184,13 @@ export default function NotebookScreen({
         ? { label: lang === "bn" ? "◌ কার্নেল লোড হচ্ছে…" : "◌ Booting kernel…", color: T.amber, bg: T.amberDim, bd: `${T.amber}33` }
         : { label: lang === "bn" ? "○ কার্নেল নিষ্ক্রিয়" : "○ Kernel idle", color: T.txt2, bg: T.bg3, bd: T.border };
 
-  return (
-    <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-      {/* Notebook list sidebar */}
-      <aside
-        style={{
-          width: 220,
-          flexShrink: 0,
-          background: T.bg1,
-          borderRight: `1px solid ${T.border}`,
-          display: "flex",
-          flexDirection: "column",
-          overflowY: "auto"
-        }}
-      >
-        <div style={{ padding: "12px 12px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontSize: 11, fontWeight: 900, color: T.txt1, letterSpacing: 0.4 }}>
-            {lang === "bn" ? "আমার নোটবুক" : "MY NOTEBOOKS"}
-          </span>
+  const sidebarContent = (
+    <>
+      <div style={{ padding: "12px 12px 8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 11, fontWeight: 900, color: T.txt1, letterSpacing: 0.4 }}>
+          {lang === "bn" ? "আমার নোটবুক" : "MY NOTEBOOKS"}
+        </span>
+        <div style={{ display: "flex", gap: 4 }}>
           <button
             onClick={newNotebook}
             title={lang === "bn" ? "নতুন" : "New notebook"}
@@ -199,46 +198,131 @@ export default function NotebookScreen({
           >
             +
           </button>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 8px 8px" }}>
-          {docs.length === 0 && (
-            <p style={{ fontSize: 10.5, color: T.txt2, padding: "4px 6px", lineHeight: 1.5 }}>
-              {lang === "bn" ? "এখনো কোনো নোটবুক সংরক্ষিত নেই।" : "No saved notebooks yet."}
-            </p>
+          {isMobile && (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              style={{ background: T.bg3, color: T.txt1, border: `1px solid ${T.border}`, borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 14, lineHeight: 1 }}
+            >
+              ×
+            </button>
           )}
-          {docs.map((d) => (
-            <div
-              key={d.id}
-              onClick={() => openNotebook(d)}
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, padding: "0 8px 8px" }}>
+        {docs.length === 0 && (
+          <p style={{ fontSize: 10.5, color: T.txt2, padding: "4px 6px", lineHeight: 1.5 }}>
+            {lang === "bn" ? "এখনো কোনো নোটবুক সংরক্ষিত নেই।" : "No saved notebooks yet."}
+          </p>
+        )}
+        {docs.map((d) => (
+          <div
+            key={d.id}
+            onClick={() => { openNotebook(d); if (isMobile) setSidebarOpen(false); }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 6,
+              padding: "6px 8px",
+              borderRadius: 6,
+              cursor: "pointer",
+              background: d.id === activeId ? T.accentDim : "transparent",
+              border: d.id === activeId ? `1px solid ${T.accent}33` : "1px solid transparent"
+            }}
+          >
+            <span style={{ fontSize: 11.5, color: T.txt0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {d.title}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleDelete(d.id);
+              }}
+              style={{ background: "none", border: "none", color: T.txt2, cursor: "pointer", fontSize: 13, lineHeight: 1, flexShrink: 0 }}
+              title={lang === "bn" ? "মুছুন" : "Delete"}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
+  return (
+    <div style={{ display: "flex", flex: 1, minHeight: 0, position: "relative" }}>
+      {/* Mobile: off-canvas drawer */}
+      {isMobile ? (
+        <>
+          {!sidebarOpen && (
+            <button
+              onClick={() => setSidebarOpen(true)}
+              title={lang === "bn" ? "নোটবুক তালিকা" : "Notebooks"}
               style={{
+                position: "fixed",
+                left: 0,
+                top: "42%",
+                transform: "translateY(-50%)",
+                background: T.accent,
+                border: `1px solid ${T.border}`,
+                borderRadius: "0 8px 8px 0",
+                padding: "16px 8px",
+                color: "#000",
+                cursor: "pointer",
+                fontWeight: 900,
+                fontSize: 10.5,
+                zIndex: 55,
+                writingMode: "vertical-rl",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "space-between",
-                gap: 6,
-                padding: "6px 8px",
-                borderRadius: 6,
-                cursor: "pointer",
-                background: d.id === activeId ? T.accentDim : "transparent",
-                border: d.id === activeId ? `1px solid ${T.accent}33` : "1px solid transparent"
+                justifyContent: "center",
+                gap: 4,
+                boxShadow: T.shadow,
+                outline: "none"
               }}
             >
-              <span style={{ fontSize: 11.5, color: T.txt0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {d.title}
-              </span>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleDelete(d.id);
-                }}
-                style={{ background: "none", border: "none", color: T.txt2, cursor: "pointer", fontSize: 13, lineHeight: 1, flexShrink: 0 }}
-                title={lang === "bn" ? "মুছুন" : "Delete"}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      </aside>
+              ☰ {lang === "bn" ? "নোটবুক" : "Notebooks"}
+            </button>
+          )}
+          {sidebarOpen && (
+            <div onClick={() => setSidebarOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 60 }} />
+          )}
+          <aside
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: 220,
+              zIndex: 61,
+              background: T.bg1,
+              borderRight: `1px solid ${T.border}`,
+              display: "flex",
+              flexDirection: "column",
+              overflowY: "auto",
+              transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+              transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+            }}
+          >
+            {sidebarContent}
+          </aside>
+        </>
+      ) : (
+        /* Desktop: in-flow sidebar */
+        <aside
+          style={{
+            width: 220,
+            flexShrink: 0,
+            background: T.bg1,
+            borderRight: `1px solid ${T.border}`,
+            display: "flex",
+            flexDirection: "column",
+            overflowY: "auto"
+          }}
+        >
+          {sidebarContent}
+        </aside>
+      )}
 
       {/* Notebook editor */}
       <div

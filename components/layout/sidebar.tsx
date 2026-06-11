@@ -3,6 +3,8 @@
 import React from "react";
 import { Module, ChatMessage } from "@/types/ui";
 import { PanelLeftClose } from "lucide-react";
+import { TypingDots } from "@/components/ai/TypingDots";
+import { ChatMarkdown } from "@/components/ai/ChatMarkdown";
 
 // ═══════════════════════════════════════════════════════════════════
 // SIDEBAR: LEFT SIDE OUTLINE COURSE EXPLORER
@@ -36,6 +38,7 @@ export function CourseExplorerSidebar({
     <div
       style={{
         width: isCollapsed ? 0 : 250,
+        minWidth: isCollapsed ? 0 : 220,
         borderRight: isCollapsed ? "0 solid transparent" : `1px solid ${T.border}`,
         background: T.bg1,
         display: "flex",
@@ -43,7 +46,7 @@ export function CourseExplorerSidebar({
         flexShrink: 0,
         userSelect: "none",
         overflow: "hidden",
-        whiteSpace: "nowrap",
+        overflowX: "hidden",
         transition: "width 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-right 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
       }}
     >
@@ -233,7 +236,8 @@ export function AIChatSidebar({
   msgs,
   setMsgs,
   lang,
-  width = 290
+  width = 290,
+  activeLessonId
 }: {
   T: any;
   t: any;
@@ -241,39 +245,49 @@ export function AIChatSidebar({
   setMsgs: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   lang: string;
   width?: number;
+  activeLessonId?: string;
 }) {
   const [chatInput, setChatInput] = React.useState("");
+  const [isLoading, setIsLoading] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement>(null);
+  const aiAccent = "#10b981";
 
   React.useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [msgs]);
+  }, [msgs, isLoading]);
 
-  const handleSend = (overrideTxt?: string) => {
-    const textToSend = overrideTxt || chatInput;
-    if (!textToSend.trim()) return;
+  const handleSend = async (overrideTxt?: string) => {
+    const textToSend = (overrideTxt || chatInput).trim();
+    if (!textToSend || isLoading) return;
     if (!overrideTxt) setChatInput("");
 
-    const userMessage: ChatMessage = { role: "user", text: textToSend };
-    
-    // Auto-generate helper context answers
-    let botReplyText = "";
-    if (/return/i.test(textToSend) || /রিটার্ন/i.test(textToSend)) {
-      botReplyText = lang === "bn"
-        ? "রিটার্ন (`return`) স্টেটমেন্ট দুটি কাজ করে:\n১. ফাংশন শেষ করে কলিং পয়েন্টে নিয়ে যায়।\n২. ফাংশন থেকে প্রস্তুতকৃত মান প্রেরণ করে।"
-        : "The `return` statement immediately exits a function and passes a specified value back to the caller.";
-    } else if (/scope/i.test(textToSend) || /স্কোপ/i.test(textToSend)) {
-      botReplyText = lang === "bn"
-        ? "স্কোপ (Scope) বলতে বোঝায় কোডের কোন কোন ব্লকে একটি ভ্যারিয়েবল দৃশ্যমান বা অ্যাক্সেসযোগ্য হবে। এটি প্রধানত লোকাল ও গ্লোবাল হয়ে থাকে।"
-        : "Scope refers to the accessibility of variables across different blocks of your code. Variables declared inside a function have internal 'local' scope.";
-    } else {
-      botReplyText = lang === "bn"
-        ? "চমত্কার প্রশ্ন! আপনি ডেটা সায়েন্স বা কারিগরি ক্যারিয়ারে এটি খুব ব্যবহার করবেন। বিষয়টিকে সুন্দরভাবে বুঝিয়ে লিখছি বা ভিডিও সংকেতে চেক করুন!"
-        : "Great observation! This binds heavily to your active learning syllabus, and will be critical in real interview panels. Let me know if you need code snippets.";
-    }
+    setMsgs((p) => [...p, { role: "user", text: textToSend }]);
+    setIsLoading(true);
 
-    const aiMessage: ChatMessage = { role: "ai", text: botReplyText };
-    setMsgs((p) => [...p, userMessage, aiMessage]);
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: textToSend,
+          lesson_id: activeLessonId || "",
+          language: lang
+        })
+      });
+      const json = await res.json();
+      if (json?.data?.answer) {
+        setMsgs((p) => [...p, { role: "ai", text: json.data.answer }]);
+      } else {
+        const errText = json?.error || (lang === "bn"
+          ? "AI সাময়িকভাবে অনুপলব্ধ।"
+          : "AI temporarily unavailable. Add an API key in the Admin Panel.");
+        setMsgs((p) => [...p, { role: "ai", text: errText }]);
+      }
+    } catch {
+      setMsgs((p) => [...p, { role: "ai", text: lang === "bn" ? "নেটওয়ার্ক ত্রুটি।" : "Network error. Please try again." }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const quickPills = lang === "bn"
@@ -300,25 +314,24 @@ export function AIChatSidebar({
               width: 38,
               height: 38,
               borderRadius: "50%",
-              background: "#0a231c",
-              border: "1.5px solid rgba(16, 185, 129, 0.35)",
+              background: `${aiAccent}20`,
+              border: `1.5px solid ${aiAccent}60`,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: 15,
-              color: "#10b981",
-              boxShadow: "0 0 10px rgba(16, 185, 129, 0.15)",
+              color: aiAccent,
               flexShrink: 0
             }}
           >
             ✦
           </div>
           <div>
-            <div style={{ fontSize: 13.5, fontWeight: "bold", color: "#ffffff", letterSpacing: "0.2px" }}>
+            <div style={{ fontSize: 13.5, fontWeight: "bold", color: T.txt0, letterSpacing: "0.2px" }}>
               {t.aiMentorTitle || "AI Studio Mentor"}
             </div>
-            <div style={{ fontSize: 11, color: "#10b981", display: "flex", alignItems: "center", gap: 4, marginTop: 1, fontWeight: 600 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
+            <div style={{ fontSize: 11, color: aiAccent, display: "flex", alignItems: "center", gap: 4, marginTop: 1, fontWeight: 600 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: aiAccent, boxShadow: `0 0 6px ${aiAccent}` }} />
               Active AI Tutor (Online)
             </div>
           </div>
@@ -382,13 +395,13 @@ export function AIChatSidebar({
                     width: 26,
                     height: 26,
                     borderRadius: "50%",
-                    background: "#0c1716",
-                    border: "1px solid rgba(16, 185, 129, 0.25)",
+                    background: `${aiAccent}20`,
+                    border: `1px solid ${aiAccent}40`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontSize: 11,
-                    color: "#10b981",
+                    color: aiAccent,
                     flexShrink: 0,
                     marginTop: 2
                   }}
@@ -399,19 +412,16 @@ export function AIChatSidebar({
               <div style={{ maxWidth: "80%", display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start" }}>
                 <div
                   style={{
-                    background: isUser ? "#00b887" : "#1a1d29",
-                    color: isUser ? "#000000" : "#f3f4f6",
+                    background: isUser ? T.accent : T.bg2,
+                    color: isUser ? "#000000" : T.txt0,
                     borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
                     padding: "10px 14px",
-                    fontSize: "12px",
-                    lineHeight: 1.6,
-                    whiteSpace: "pre-wrap",
-                    border: isUser ? "none" : `1px solid ${T.border}33`,
-                    fontWeight: isUser ? "600" : "400",
-                    boxShadow: "0 2px 5px rgba(0,0,0,0.05)"
+                    fontSize: "13px",
+                    border: isUser ? "none" : `1px solid ${T.border}`,
+                    fontWeight: isUser ? 600 : "normal"
                   }}
                 >
-                  {m.text}
+                  {isUser ? m.text : <ChatMarkdown text={m.text} color={T.txt0} />}
                 </div>
                 {m.timestamp && (
                   <button
@@ -443,6 +453,14 @@ export function AIChatSidebar({
             </div>
           );
         })}
+        {isLoading && (
+          <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "flex-start" }}>
+            <div style={{ width: 26, height: 26, borderRadius: "50%", background: `${aiAccent}20`, border: `1px solid ${aiAccent}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: aiAccent, flexShrink: 0, marginTop: 2 }}>✦</div>
+            <div style={{ background: T.bg2, border: `1px solid ${T.border}`, borderRadius: "16px 16px 16px 4px", padding: "10px 14px" }}>
+              <TypingDots color={aiAccent} />
+            </div>
+          </div>
+        )}
         <div ref={scrollRef} />
       </div>
 
@@ -489,21 +507,22 @@ export function AIChatSidebar({
         />
         <button
           onClick={() => handleSend()}
+          disabled={isLoading}
           style={{
-            background: "#00b887",
+            background: T.accent,
             border: "none",
             borderRadius: "50%",
             width: 34,
             height: 34,
-            cursor: "pointer",
+            cursor: isLoading ? "not-allowed" : "pointer",
+            opacity: isLoading ? 0.6 : 1,
             fontWeight: "bold",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: "14px",
             color: "#000000",
-            flexShrink: 0,
-            transition: "opacity 0.15s, transform 0.15s"
+            flexShrink: 0
           }}
         >
           ↑
