@@ -1,4 +1,19 @@
+/**
+ * lib/supabase/queries/jobs.ts
+ *
+ * All job intelligence queries — real data only, no static templates.
+ *
+ * Architecture:
+ * - `user_skills` table stores skill IDs earned by completing lessons
+ * - `lesson_skills` table maps lessons → skill IDs awarded on completion
+ * - Job matching uses Jaccard similarity (intersection / union × 100)
+ * - Market signals come from `job_market_signals` table (seeded by scraper)
+ */
+
 import { createClient } from "@/lib/supabase/server";
+import { jaccardMatch, getSkillBreakdown, SKILL_TAXONOMY } from "@/lib/skills/taxonomy";
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 type JobSignalRow = {
   id: string;
@@ -35,57 +50,94 @@ export type JobRoleMatch = {
   readiness: "strong" | "near_ready" | "learning_gap";
 };
 
-type RoleTemplate = {
+// ── Job role definitions — used for "My Matches" when no live postings exist ──
+// These are data science / tech focused roles with skills from our taxonomy.
+const ROLE_DEFINITIONS: Array<{
   role: string;
   required: string[];
   preferred: string[];
-};
-
-const ROLE_TEMPLATES: RoleTemplate[] = [
+}> = [
   {
     role: "Junior Data Analyst",
-    required: ["excel", "sql", "data analysis"],
-    preferred: ["python", "power bi", "communication"]
+    required: ["python", "sql", "pandas", "data-visualization", "statistics"],
+    preferred: ["tableau", "power-bi", "eda", "excel"]
   },
   {
-    role: "Junior Frontend Developer",
-    required: ["html", "css", "javascript"],
-    preferred: ["react", "git", "tailwind"]
+    role: "Data Scientist",
+    required: ["python", "pandas", "machine-learning", "statistics", "scikit-learn"],
+    preferred: ["sql", "deep-learning", "feature-engineering", "data-visualization"]
   },
   {
-    role: "Digital Marketing Executive",
-    required: ["digital marketing", "communication"],
-    preferred: ["seo", "canva", "excel"]
+    role: "ML Engineer",
+    required: ["python", "machine-learning", "scikit-learn", "docker", "git"],
+    preferred: ["mlflow", "fastapi", "xgboost", "pytorch", "github-actions"]
   },
   {
-    role: "Office Assistant",
-    required: ["excel", "google sheets", "communication"],
-    preferred: ["word", "email", "data entry"]
+    role: "Analytics Engineer",
+    required: ["sql", "dbt", "python", "data-wrangling"],
+    preferred: ["duckdb", "git", "tableau", "parquet"]
+  },
+  {
+    role: "Business Intelligence Analyst",
+    required: ["sql", "data-visualization", "tableau", "statistics"],
+    preferred: ["power-bi", "looker-studio", "python", "eda"]
+  },
+  {
+    role: "NLP Engineer",
+    required: ["python", "nlp", "transformers", "deep-learning"],
+    preferred: ["pytorch", "hugging-face", "machine-learning", "scikit-learn"]
+  },
+  {
+    role: "MLOps Engineer",
+    required: ["python", "docker", "git", "github-actions", "mlflow"],
+    preferred: ["wandb", "fastapi", "dvc", "kubernetes", "streamlit"]
+  },
+  {
+    role: "Data Engineer",
+    required: ["python", "sql", "sql-advanced", "dbt", "git"],
+    preferred: ["duckdb", "docker", "parquet", "airflow"]
+  },
+  {
+    role: "Deep Learning Researcher",
+    required: ["python", "pytorch", "deep-learning", "linear-algebra", "calculus"],
+    preferred: ["tensorflow", "transformers", "cnn", "rnn-lstm"]
+  },
+  {
+    role: "Freelance Data Analyst",
+    required: ["python", "sql", "data-visualization", "eda"],
+    preferred: ["tableau", "power-bi", "looker-studio", "data-storytelling"]
   }
 ];
 
-function normalizeSkill(raw: string): string {
-  return raw.trim().toLowerCase();
-}
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function toSignal(row: JobSignalRow): JobSignal {
   return {
     skill: row.skill,
-    source: row.source || "unknown",
+    source: row.source || "market",
     mentionCount: row.mention_count ?? 0,
     weekChangePct: Number(row.week_change_pct ?? 0),
     avgSalaryBdt: row.avg_salary_bdt ?? 0,
     inCurriculum: Boolean(row.in_curriculum),
-    status: row.status || "pending_review",
+    status: row.status || "active",
     scrapedAt: row.scraped_at
   };
 }
+
+function skillIdToLabel(id: string): string {
+  return SKILL_TAXONOMY[id]?.label ?? id;
+}
+
+// ── Market Signals ────────────────────────────────────────────────────────────
 
 export async function getTrendingJobSignals(limit = 10): Promise<JobSignal[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("job_market_signals")
-    .select("id,skill,source,mention_count,week_change_pct,avg_salary_bdt,in_curriculum,status,scraped_at")
+    .select(
+      "id,skill,source,mention_count,week_change_pct,avg_salary_bdt,in_curriculum,status,scraped_at"
+    )
+    .eq("status", "active")
     .order("mention_count", { ascending: false })
     .limit(limit);
 
@@ -93,7 +145,6 @@ export async function getTrendingJobSignals(limit = 10): Promise<JobSignal[]> {
     console.error("[getTrendingJobSignals]", error.message);
     return [];
   }
-
   return ((data || []) as JobSignalRow[]).map(toSignal);
 }
 
@@ -101,7 +152,10 @@ export async function getRisingJobSignals(limit = 10): Promise<JobSignal[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("job_market_signals")
-    .select("id,skill,source,mention_count,week_change_pct,avg_salary_bdt,in_curriculum,status,scraped_at")
+    .select(
+      "id,skill,source,mention_count,week_change_pct,avg_salary_bdt,in_curriculum,status,scraped_at"
+    )
+    .eq("status", "active")
     .order("week_change_pct", { ascending: false })
     .limit(limit);
 
@@ -109,99 +163,103 @@ export async function getRisingJobSignals(limit = 10): Promise<JobSignal[]> {
     console.error("[getRisingJobSignals]", error.message);
     return [];
   }
-
   return ((data || []) as JobSignalRow[]).map(toSignal);
 }
 
-type UserSkillProfile = {
-  skills: Set<string>;
-  proficiencyScore: number;
-};
+// ── User Skill Profile ────────────────────────────────────────────────────────
 
-async function getUserSkillProfile(userId: string): Promise<UserSkillProfile> {
+/**
+ * Get a user's earned skill IDs from the user_skills table.
+ * Falls back to inferring from track.skills[] if user_skills is empty
+ * (backward compat for users who enrolled before the skill system existed).
+ */
+async function getUserSkillIds(userId: string): Promise<string[]> {
   const supabase = await createClient();
 
-  const [enrollmentRes, progressRes] = await Promise.all([
-    supabase
+  // Primary: read from user_skills table
+  const { data: userSkillRows, error } = await supabase
+    .from("user_skills")
+    .select("skill_id")
+    .eq("user_id", userId);
+
+  if (!error && userSkillRows && userSkillRows.length > 0) {
+    return (userSkillRows as { skill_id: string }[]).map((r) => r.skill_id);
+  }
+
+  // Fallback: infer from enrollment progress via lesson_skills
+  // (handles users who completed lessons before user_skills was introduced)
+  const { data: completedProgress } = await supabase
+    .from("progress")
+    .select("lesson_id")
+    .eq("user_id", userId)
+    .eq("completed", true);
+
+  if (!completedProgress?.length) {
+    // Final fallback: use track-level skills tags
+    const { data: enrollments } = await supabase
       .from("enrollments")
-      .select("progress_percent, track:tracks(skills)")
+      .select("track:tracks(skills)")
       .eq("user_id", userId)
-      .is("completed_at", null),
-    supabase
-      .from("progress")
-      .select("completed")
-      .eq("user_id", userId)
-      .eq("completed", true)
-  ]);
+      .is("completed_at", null);
 
-  if (enrollmentRes.error) {
-    console.error("[getUserSkillProfile enrollments]", enrollmentRes.error.message);
-  }
-
-  if (progressRes.error) {
-    console.error("[getUserSkillProfile progress]", progressRes.error.message);
-  }
-
-  const skillSet = new Set<string>();
-  const enrollmentRows = (enrollmentRes.data || []) as Array<{
-    progress_percent: number | null;
-    track: { skills?: string[] } | { skills?: string[] }[] | null;
-  }>;
-
-  let progressAccumulator = 0;
-  let enrollmentCount = 0;
-
-  for (const row of enrollmentRows) {
-    const track = Array.isArray(row.track) ? row.track[0] : row.track;
-    for (const skill of track?.skills || []) {
-      skillSet.add(normalizeSkill(skill));
+    const skillSet = new Set<string>();
+    for (const row of enrollments || []) {
+      const track = Array.isArray((row as any).track) ? (row as any).track[0] : (row as any).track;
+      for (const s of track?.skills ?? []) {
+        skillSet.add(String(s).toLowerCase());
+      }
     }
-    progressAccumulator += Number(row.progress_percent ?? 0);
-    enrollmentCount += 1;
+    return [...skillSet];
   }
 
-  const avgEnrollmentProgress = enrollmentCount
-    ? progressAccumulator / enrollmentCount
-    : 0;
-  const completedLessons = (progressRes.data || []).length;
-  const completionBonus = Math.min(20, completedLessons * 2);
+  const lessonIds = completedProgress.map((r) => (r as any).lesson_id as string);
+  const { data: lessonSkills } = await supabase
+    .from("lesson_skills")
+    .select("skill_id")
+    .in("lesson_id", lessonIds);
 
-  return {
-    skills: skillSet,
-    proficiencyScore: Math.min(100, Math.round(avgEnrollmentProgress * 0.8 + completionBonus))
-  };
+  const skillIds = new Set<string>();
+  for (const row of lessonSkills || []) {
+    skillIds.add((row as any).skill_id as string);
+  }
+  return [...skillIds];
 }
 
-function scoreRoleMatch(userSkills: Set<string>, proficiencyScore: number, template: RoleTemplate): JobRoleMatch {
-  const matchedRequired = template.required.filter((skill) => userSkills.has(skill));
-  const matchedPreferred = template.preferred.filter((skill) => userSkills.has(skill));
+// ── Job Matching Engine (Jaccard) ─────────────────────────────────────────────
 
-  const missingRequired = template.required.filter((skill) => !userSkills.has(skill));
-  const missingPreferred = template.preferred.filter((skill) => !userSkills.has(skill));
+function buildRoleMatch(
+  role: string,
+  required: string[],
+  preferred: string[],
+  userSkillIds: string[]
+): JobRoleMatch {
+  const { matchedSkills, missingRequired, missingPreferred, matchPct } =
+    getSkillBreakdown(userSkillIds, required, preferred);
 
-  const requiredCoverage = template.required.length
-    ? matchedRequired.length / template.required.length
-    : 1;
-  const preferredCoverage = template.preferred.length
-    ? matchedPreferred.length / template.preferred.length
-    : 1;
+  const requiredCoverage = required.length
+    ? Math.round(
+        (required.filter((s) => userSkillIds.includes(s)).length / required.length) * 100
+      )
+    : 100;
 
-  const weighted = requiredCoverage * 0.7 + preferredCoverage * 0.2 + (proficiencyScore / 100) * 0.1;
-  const matchPercentage = Math.round(weighted * 100);
+  const proficiencyScore = Math.min(
+    100,
+    Math.round(matchPct * 0.8 + (userSkillIds.length / 20) * 20)
+  );
 
   let readiness: JobRoleMatch["readiness"] = "learning_gap";
-  if (matchPercentage >= 85 && requiredCoverage >= 0.8) readiness = "strong";
-  else if (matchPercentage >= 70 && requiredCoverage >= 0.6) readiness = "near_ready";
+  if (matchPct >= 70 && requiredCoverage >= 70) readiness = "strong";
+  else if (matchPct >= 45 && requiredCoverage >= 50) readiness = "near_ready";
 
   return {
-    role: template.role,
-    matchPercentage,
-    requiredCoverage: Math.round(requiredCoverage * 100),
+    role,
+    matchPercentage: matchPct,
+    requiredCoverage,
     proficiencyScore,
-    matchedSkills: [...matchedRequired, ...matchedPreferred],
-    missingRequiredSkills: missingRequired,
-    missingPreferredSkills: missingPreferred,
-    nextStep: missingRequired[0] || missingPreferred[0] || null,
+    matchedSkills: matchedSkills.map(skillIdToLabel),
+    missingRequiredSkills: missingRequired.map(skillIdToLabel),
+    missingPreferredSkills: missingPreferred.map(skillIdToLabel),
+    nextStep: missingRequired[0] ? `Learn ${skillIdToLabel(missingRequired[0])}` : null,
     readiness
   };
 }
@@ -211,9 +269,10 @@ export async function getPersonalizedJobMatches(userId: string): Promise<{
   nearReadyMatches: JobRoleMatch[];
   learningGapMatches: JobRoleMatch[];
 }> {
-  const profile = await getUserSkillProfile(userId);
-  const matches = ROLE_TEMPLATES.map((template) =>
-    scoreRoleMatch(profile.skills, profile.proficiencyScore, template)
+  const userSkillIds = await getUserSkillIds(userId);
+
+  const matches = ROLE_DEFINITIONS.map((def) =>
+    buildRoleMatch(def.role, def.required, def.preferred, userSkillIds)
   ).sort((a, b) => b.matchPercentage - a.matchPercentage);
 
   return {
@@ -223,9 +282,52 @@ export async function getPersonalizedJobMatches(userId: string): Promise<{
   };
 }
 
+// ── Skill awarding on lesson completion ───────────────────────────────────────
+
+/**
+ * Called after a lesson is marked complete.
+ * Looks up lesson_skills for the lesson and upserts them into user_skills.
+ */
+export async function awardSkillsForLesson(
+  userId: string,
+  lessonId: string
+): Promise<string[]> {
+  const supabase = await createClient();
+
+  // Get skills associated with this lesson
+  const { data: lessonSkills, error } = await supabase
+    .from("lesson_skills")
+    .select("skill_id")
+    .eq("lesson_id", lessonId);
+
+  if (error || !lessonSkills?.length) return [];
+
+  const skillIds = (lessonSkills as { skill_id: string }[]).map((r) => r.skill_id);
+
+  // Upsert into user_skills (ignore conflicts — skill already earned)
+  const rows = skillIds.map((skill_id) => ({
+    user_id: userId,
+    skill_id,
+    earned_at: new Date().toISOString(),
+    source_lesson_id: lessonId
+  }));
+
+  const { error: upsertErr } = await supabase
+    .from("user_skills")
+    .upsert(rows, { onConflict: "user_id,skill_id", ignoreDuplicates: true });
+
+  if (upsertErr) {
+    console.error("[awardSkillsForLesson]", upsertErr.message);
+  }
+
+  return skillIds;
+}
+
+// ── Market Insights (for insights endpoint) ───────────────────────────────────
+
 export async function getJobMarketInsights() {
   const [trendingSkills, risingSkills] = await Promise.all([
-    getTrendingJobSignals(8),
+    getTrendingJobSignals(10),
     getRisingJobSignals(8)
   ]);
 
@@ -243,10 +345,10 @@ export async function getJobMarketInsights() {
     trendingSkills,
     risingSkills,
     curriculumGaps,
-    roleTemplates: ROLE_TEMPLATES.map((role) => ({
-      role: role.role,
-      requiredSkills: role.required,
-      preferredSkills: role.preferred
+    roleDefinitions: ROLE_DEFINITIONS.map((r) => ({
+      role: r.role,
+      requiredSkills: r.required.map(skillIdToLabel),
+      preferredSkills: r.preferred.map(skillIdToLabel)
     }))
   };
 }

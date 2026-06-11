@@ -68,5 +68,16 @@ export async function markLessonComplete(
   const pct = total > 0 ? Math.round((completedInTrack / total) * 100) : 0;
   await updateEnrollmentProgress(userId, trackId, pct, lessonId);
 
+  // Fire-and-forget: award skills earned from this lesson
+  try {
+    void fetch(`/api/skills/award`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, lessonId })
+    });
+  } catch {
+    // Non-critical — skill awarding can lag behind
+  }
+
   return {};
 }
