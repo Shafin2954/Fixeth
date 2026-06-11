@@ -214,7 +214,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
               </span>
               <span style={{ color: T.txt2, fontSize: 12 }}>›</span>
               <span style={{ fontSize: 13, color: T.txt0, fontWeight: 600 }}>
-                {lang === "bn" ? `মডিউল ${activeModule?.id ?? 1}` : `Module ${activeModule?.id ?? 1}`}
+                {activeModule?.title ?? (lang === "bn" ? "মডিউল" : "Module")}
               </span>
               <span style={{ color: T.txt2, fontSize: 12 }}>›</span>
               <span style={{ fontSize: 13, color: T.txt0, fontWeight: 600 }}>
@@ -223,7 +223,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             </>
           )}
 
-          <div style={{ marginLeft: isMobile ? "auto" : "auto", display: "flex", gap: isMobile ? 6 : 8, alignItems: "center" }}>
+          <div style={{ marginLeft: "auto", display: "flex", gap: isMobile ? 6 : 8, alignItems: "center" }}>
             {!isMobile && (
               <div
                 style={{
@@ -411,10 +411,10 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                 flex: isMobile ? "0 0 auto" : "none"
               }}
             >
-              <item.icon 
-                size={isMobile ? 22 : 18} 
-                strokeWidth={isActive ? 2.2 : 1.9} 
-                color={isActive ? T.accent : T.txt1} 
+              <item.icon
+                size={isMobile ? 22 : 18}
+                strokeWidth={isActive ? 2.2 : 1.9}
+                color={isActive ? T.accent : T.txt1}
               />
               <span
                 style={{
