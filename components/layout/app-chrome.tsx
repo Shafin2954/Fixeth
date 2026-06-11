@@ -57,6 +57,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     isDark,
     setIsDark,
     user,
+    userRole,
     density,
     preferences,
     profileOpen,
@@ -279,12 +280,31 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                     {t.profilePreferences}
                   </Link>
                   <Link
+                    href="/docs"
+                    onClick={() => setProfileOpen(false)}
+                    className="block p-2.5 text-[13px] text-[var(--t-txt1)] no-underline"
+                  >
+                    {lang === "bn" ? "ডকুমেন্টেশন" : "Docs"}
+                  </Link>
+                  <Link
                     href="/about"
                     onClick={() => setProfileOpen(false)}
                     className="block p-2.5 text-[13px] text-[var(--t-txt1)] no-underline"
                   >
                     {lang === "bn" ? "আমাদের সম্পর্কে" : "About"}
                   </Link>
+                  {userRole === "platform_admin" && (
+                    <>
+                      <div className="my-2 h-px bg-[var(--t-border)]" />
+                      <Link
+                        href="/admin"
+                        onClick={() => setProfileOpen(false)}
+                        className="block p-2.5 text-[13px] font-bold text-[var(--t-accent)] no-underline"
+                      >
+                        {lang === "bn" ? "অ্যাডমিন প্যানেল" : "Admin Panel"}
+                      </Link>
+                    </>
+                  )}
                   <ProfileSignOutButton />
                 </div>
               )}
