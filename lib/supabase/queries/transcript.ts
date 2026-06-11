@@ -112,3 +112,88 @@ export function parseTimestamp(ts: string): number {
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
   return 0;
 }
+
+/**
+ * Fetch topics with their associated transcript chunks for a lesson.
+ * Uses the RPC function `get_lesson_topics_with_chunks` to get a flat list
+ * of (topic, chunk) pairs, then groups by topic.
+ */
+export async function getTopicsWithChunks(
+  lessonId: string
+): Promise<Array<{
+  topic_id: string;
+  topic_label: string;
+  topic_label_bn: string | null;
+  start_time: number;
+  end_time: number;
+  order_index: number;
+  chunks: TranscriptChunk[]
+}>> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .rpc('get_lesson_topics_with_chunks', { p_lesson_id: lessonId });
+
+  if (error) {
+    console.error("[getTopicsWithChunks]", error.message);
+    return [];
+  }
+
+  const rows = (data || []) as Array<{
+    topic_id: string;
+    topic_label: string;
+    topic_label_bn: string | null;
+    start_time: number;
+    end_time: number;
+    order_index: number;
+    chunk_id: string;
+    chunk_text: string;
+    chunk_start: number;
+    chunk_end: number;
+  }>;
+
+  // Group by topic_id
+  const topicMap = new Map<string, Array<typeof rows[0]>>();
+  for (const row of rows) {
+    if (!topicMap.has(row.topic_id)) {
+      topicMap.set(row.topic_id, []);
+    }
+    topicMap.get(row.topic_id)!.push(row);
+  }
+
+  const result: Array<{
+    topic_id: string;
+    topic_label: string;
+    topic_label_bn: string | null;
+    start_time: number;
+    end_time: number;
+    order_index: number;
+    chunks: TranscriptChunk[]
+  }> = [];
+
+  for (const [topicId, topicRows] of topicMap) {
+    // Sort chunks by chunk_start within the topic
+    const sortedRows = topicRows.slice().sort((a, b) => a.chunk_start - b.chunk_start);
+    const first = sortedRows[0];
+    const chunks: TranscriptChunk[] = sortedRows.map(row => ({
+      id: row.chunk_id,
+      lesson_id: lessonId, // we know the lesson_id from the argument
+      chunk_text: row.chunk_text,
+      start_time: row.chunk_start,
+      end_time: row.chunk_end
+    }));
+
+    result.push({
+      topic_id: topicId,
+      topic_label: first.topic_label,
+      topic_label_bn: first.topic_label_bn,
+      start_time: first.start_time,
+      end_time: first.end_time,
+      order_index: first.order_index,
+      chunks
+    });
+  }
+
+  // Sort topics by order_index
+  result.sort((a, b) => a.order_index - b.order_index);
+  return result;
+}

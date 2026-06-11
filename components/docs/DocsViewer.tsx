@@ -6,6 +6,17 @@ import FeatureMatrix from './FeatureMatrix';
 
 export default function DocsViewer({ doc }: { doc: Record<string, unknown> | null }) {
   const content = (doc && (doc['content'] as Record<string, unknown> | null)) || {};
+  const markdown = String((doc && doc['content_md']) || content['markdown'] || '');
+  if (markdown.trim()) {
+    return (
+      <div className="min-h-screen bg-[#0d1117] text-gray-200">
+        <article className="prose prose-invert mx-auto max-w-4xl p-6">
+          <ReactMarkdown>{markdown}</ReactMarkdown>
+        </article>
+      </div>
+    );
+  }
+
   const hero = (content['hero'] as Record<string, unknown> | null) ?? { title: doc ? doc['title'] : '' };
   const heroTitle = String((hero as Record<string, unknown>)['title'] ?? '');
   const heroSubtitle = String((hero as Record<string, unknown>)['subtitle'] ?? '');
