@@ -152,3 +152,73 @@ export interface ApiResponse<T> {
   data?: T
   error?: string
 }
+
+// Docs module
+export type DocSectionType = 'markdown' | 'mermaid' | 'feature-matrix' | 'live-stats'
+export type DocVisibilityMode = 'off' | 'scheduled' | 'always-on'
+
+export interface DocSlide {
+  id: string
+  title: string
+  body: string
+}
+
+export interface DocSection {
+  id: string
+  title: string
+  type: DocSectionType
+  body: string
+}
+
+export interface TeamMember {
+  id: string
+  full_name: string
+  role: string
+  email?: string | null
+  avatar_url?: string | null
+}
+
+export interface DocTeam {
+  name?: string
+  members: TeamMember[]
+}
+
+export interface DocContent {
+  hero: {
+    title: string
+    subtitle?: string
+    tagline?: string
+  }
+  slides: DocSlide[]
+  sections: DocSection[]
+  team: DocTeam
+  meta?: {
+    github_url?: string
+  }
+}
+
+export interface DocRecord {
+  id: string
+  slug: string
+  title: string
+  content: DocContent
+  is_published: boolean
+  visible_override: boolean
+  start_ts: string | null
+  end_ts: string | null
+  updated_at?: string
+}
+
+export interface DocVisibility {
+  mode: DocVisibilityMode
+  start_ts?: string | null
+  end_ts?: string | null
+}
+
+export interface LiveStats {
+  tracks: number
+  lessons: number
+  users: number
+  enrollments: number
+  features: number
+}

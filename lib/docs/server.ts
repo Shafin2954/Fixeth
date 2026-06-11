@@ -1,98 +1,13 @@
-import { createClient } from '@/lib/supabase/server';
-import fs from 'fs';
-import path from 'path';
+import { getDocBySlug as _getDocBySlug } from '@/lib/supabase/queries/docs';
+import type { DocRecord } from '@/types';
 
-type Json = Record<string, unknown>;
+export type { DocRecord };
 
-export type DocRecord = {
-  id: string;
-  slug: string;
-  title: string;
-  content: Json | null;
-  content_md?: string | null;
-  is_published: boolean;
-  visible_override: boolean;
-  start_ts: string | null;
-  end_ts: string | null;
-};
-
-function loadSeedContent(): Json | null {
-  try {
-    const p = path.join(process.cwd(), 'docs', 'seed_main_doc.json');
-    const raw = fs.readFileSync(p, 'utf8');
-    return JSON.parse(raw) as Json;
-  } catch (e) {
-    return null;
-  }
+export async function fetchDocBySlug(slug: string): Promise<DocRecord | null> {
+  return _getDocBySlug(slug);
 }
 
-export async function fetchDocBySlug(slug: string) {
-  const supabase = await createClient();
-  const { data: markdownDoc, error: markdownError } = await supabase
-    .from('docs_content')
-    .select('slug, title, content_md, published, updated_at')
-    .eq('slug', slug)
-    .maybeSingle();
-
-  if (markdownError) throw markdownError;
-  if (markdownDoc) {
-    return {
-      id: markdownDoc.slug,
-      slug: markdownDoc.slug,
-      title: markdownDoc.title,
-      content: { markdown: markdownDoc.content_md ?? '' },
-      content_md: markdownDoc.content_md ?? '',
-      is_published: markdownDoc.published === true,
-      visible_override: true,
-      start_ts: null,
-      end_ts: null
-    } as DocRecord;
-  }
-
-  const { data, error } = await supabase.from('docs').select('*').eq('slug', slug).limit(1).single();
-  if (error) throw error;
-  const seed = loadSeedContent();
-  // If DB row exists but content is empty or missing key parts, merge with seed so viewer shows something
-  if (data) {
-    const content = (data.content as Json) || {};
-    const slidesExist = Array.isArray(content['slides']) && (content['slides'] as unknown[]).length > 0;
-    const sectionsExist = Array.isArray(content['sections']) && (content['sections'] as unknown[]).length > 0;
-    const teamExist = Array.isArray(content['team']) && (content['team'] as unknown[]).length > 0;
-    const needsSeed = !slidesExist || !sectionsExist || !teamExist;
-    if (needsSeed && seed) {
-      data.content = {
-        ...seed,
-        ...content // DB content overrides seed where present
-      } as Json;
-    }
-
-    // Normalize Technology Stack section to markdown bullet list for better rendering
-    try {
-      const rawSections = (data.content as Json)['sections'];
-      const sectionsArr = Array.isArray(rawSections) ? (rawSections as unknown[]) : [];
-      const sectionsTyped = sectionsArr.map((s) => (s as { title?: unknown; body?: unknown }));
-      const tsIndex = sectionsTyped.findIndex((s) => String(s.title ?? '').toLowerCase().includes('technology stack'));
-      if (tsIndex !== -1) {
-        const stackList = [
-          '- Frontend: Vite React, shadcn/ui, Tailwind',
-          '- Root App: Next.js 14 (Backend + Auth)',
-          '- Frontend SPA: Vite React (submodule)',
-          '- Database: Supabase PostgreSQL (+ pgvector)',
-          '- Agents: MCP agents (Curriculum, Tutor, Assessment)',
-          '- Embeddings: OpenAI / local BYOA options',
-          '- Infrastructure: Vercel (deploy), Supabase (DB/Auth/Storage)'
-        ].join('\n');
-        sectionsTyped[tsIndex].body = stackList;
-        (data.content as Json)['sections'] = sectionsTyped as unknown[];
-      }
-    } catch (_e) {
-      // ignore normalization errors
-    }
-  }
-  return data as DocRecord | null;
-}
-
-export function isDocVisible(doc: DocRecord | null, now = new Date()) {
+export function isDocVisible(doc: DocRecord | null, now = new Date()): boolean {
   if (!doc) return false;
   if (!doc.is_published) return false;
   if (doc.visible_override) return true;
@@ -102,14 +17,4 @@ export function isDocVisible(doc: DocRecord | null, now = new Date()) {
     return now >= s && now <= e;
   }
   return true;
-}
-
-export async function requireAdmin(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Unauthorized');
-  const { data: profile } = await supabase.from('users').select('role,is_admin').eq('id', user.id).limit(1).single();
-  const isAdmin = (profile && (profile.is_admin === true || profile.role === 'admin')) || false;
-  if (!isAdmin) throw new Error('Forbidden');
-  return user;
 }

@@ -2,20 +2,28 @@ import React from 'react';
 import DocsViewer from '@/components/docs/DocsViewer';
 import { fetchDocBySlug, isDocVisible } from '@/lib/docs/server';
 
-interface Props { params: { slug: string } }
+export const revalidate = 60;
+
+interface Props { params: Promise<{ slug: string }> }
 
 export default async function DocSlugPage({ params }: Props) {
-  const doc = await fetchDocBySlug(params.slug);
+  const { slug } = await params;
+  const doc = await fetchDocBySlug(slug);
   const visible = isDocVisible(doc);
+
   if (!visible) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-surface">
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[#0d1117]">
         <div className="max-w-xl text-center">
-          <h1 className="text-2xl font-bold">Documentation Not Available</h1>
-          <p className="mt-2 text-muted">This documentation is not currently public. Please check back later.</p>
+          <div className="text-4xl mb-4">🔒</div>
+          <h1 className="text-2xl font-black text-white">Documentation Not Available</h1>
+          <p className="mt-2 text-gray-400">
+            This documentation is not currently public. Please check back during the judging window.
+          </p>
         </div>
       </div>
     );
   }
+
   return <DocsViewer doc={doc} />;
 }
